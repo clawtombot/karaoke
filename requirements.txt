@@ -1,0 +1,30 @@
+# PHANTOM Karaoke Pipeline — Dependencies
+# Install: pip install -r requirements.txt
+# GPU strongly recommended (RTX 3060+ for reasonable speed)
+
+# Stem separation (BS-Roformer — best free/local SDR: 12.9 dB)
+audio-separator[gpu]
+
+# Lyrics transcription fallback (WhisperX)
+openai-whisper
+whisperx
+
+# Pitch extraction (Viterbi F0 tracking)
+torchcrepe
+librosa
+scipy
+
+# Image processing
+Pillow
+
+# Video composition
+moviepy
+
+# Server
+fastapi
+uvicorn[standard]
+python-multipart
+python-dotenv
+
+# Note: torch/torchvision installed by audio-separator[gpu]
+# If GPU unavailable, install CPU-only: pip install torch --index-url https://download.pytorch.org/whl/cpu

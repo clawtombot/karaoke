@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Karaoke">
+  <title>Karaoke — PHANTOM</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #070712;
+      --surface: #0d0d20;
+      --border: #1a1a38;
+      --accent: #7c3aed;
+      --accent-bright: #a855f7;
+      --text: #c9c9e0;
+      --muted: #4b4b72;
+      --green: #22c55e;
+      --red: #ef4444;
+      --gold: #f59e0b;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-badge {
+      font-size: 0.6rem;
+      letter-spacing: 0.25rem;
+      color: var(--accent-bright);
+      border: 1px solid #7c3aed40;
+      padding: 0.2rem 0.6rem;
+      border-radius: 2px;
+    }
+
+    .logo-title { font-size: 0.9rem; color: #fff; }
+
+    .status-dot {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.65rem;
+      color: var(--muted);
+    }
+
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+    .dot.online { background: var(--green); animation: pulse 2s infinite; }
+    .dot.offline { background: var(--red); }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    main {
+      flex: 1;
+      padding: 2rem 1.5rem;
+      max-width: 700px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* Backend config */
+    .backend-config {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .label {
+      font-size: 0.6rem;
+      letter-spacing: 0.2rem;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .row { display: flex; gap: 0.5rem; }
+
+    input[type="text"], input[type="file"] {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.8rem;
+      padding: 0.5rem 0.75rem;
+      outline: none;
+    }
+
+    input[type="text"]:focus, input[type="file"]:focus { border-color: var(--accent); }
+
+    button {
+      background: var(--accent);
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.75rem;
+      letter-spacing: 0.08rem;
+      padding: 0.6rem 1.2rem;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    /* Upload form */
+    .upload-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .upload-section .label { margin-bottom: 1rem; }
+
+    .field { margin-bottom: 0.75rem; }
+    .field .field-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.15rem;
+      color: var(--muted);
+      margin-bottom: 0.3rem;
+    }
+
+    .file-zone {
+      border: 1px dashed var(--border);
+      border-radius: 4px;
+      padding: 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      position: relative;
+    }
+
+    .file-zone:hover { border-color: var(--accent); }
+    .file-zone.has-file { border-color: var(--accent-bright); }
+
+    .file-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .file-zone-text { font-size: 0.8rem; color: var(--muted); pointer-events: none; }
+    .file-zone-text .file-name { color: var(--accent-bright); margin-top: 0.3rem; }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .process-btn {
+      width: 100%;
+      padding: 0.8rem;
+      font-size: 0.85rem;
+      letter-spacing: 0.15rem;
+      background: var(--accent);
+    }
+
+    /* Warning bar */
+    .warn-bar {
+      background: #1a0a00;
+      border: 1px solid #3d2000;
+      border-radius: 4px;
+      padding: 0.75rem 1rem;
+      font-size: 0.7rem;
+      color: var(--gold);
+      margin-bottom: 1.5rem;
+      display: none;
+    }
+
+    .warn-bar.visible { display: block; }
+
+    /* Jobs list */
+    #jobs-section { display: none; }
+
+    .jobs-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .job-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .job-info { flex: 1; min-width: 0; }
+    .job-title { font-size: 0.85rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .job-meta { font-size: 0.65rem; color: var(--muted); margin-top: 0.2rem; }
+
+    .job-status {
+      font-size: 0.65rem;
+      letter-spacing: 0.1rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+
+    .job-status.queued { background: #1c1400; color: var(--gold); border: 1px solid #3d2e00; }
+    .job-status.processing { background: #001c3d; color: #60a5fa; border: 1px solid #003380; animation: blink 2s infinite; }
+    .job-status.complete { background: #001a00; color: var(--green); border: 1px solid #003300; }
+    .job-status.error { background: #1a0000; color: var(--red); border: 1px solid #3d0000; }
+
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+    .download-btn {
+      background: var(--green);
+      font-size: 0.7rem;
+      padding: 0.4rem 0.8rem;
+      display: none;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      font-size: 0.6rem;
+      color: var(--muted);
+      letter-spacing: 0.1rem;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-badge">⬡ PHANTOM</div>
+  <div class="logo-title">Karaoke Studio</div>
+  <div class="status-dot">
+    <span class="dot" id="status-dot"></span>
+    <span id="status-text">checking backend...</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Backend config -->
+  <div class="backend-config">
+    <div class="label">BACKEND URL</div>
+    <div class="row">
+      <input type="text" id="backend-url" value="https://thomasnguyens-macbook-pro-1.tail4fc6de.ts.net/karaoke-api">
+      <button class="btn-ghost" onclick="testBackend()">TEST</button>
+    </div>
+  </div>
+
+  <!-- Offline warning -->
+  <div class="warn-bar" id="warn-bar">
+    ⚠ Backend offline. Start the karaoke server — see README.md for setup.
+  </div>
+
+  <!-- Upload form -->
+  <div class="upload-section">
+    <div class="label">NEW SONG</div>
+
+    <div class="field">
+      <div class="field-label">AUDIO FILE</div>
+      <div class="file-zone" id="file-zone">
+        <input type="file" id="audio-file" accept=".mp3,.wav,.flac,.m4a,.ogg" onchange="onFileSelect(this)">
+        <div class="file-zone-text">
+          Drop audio file here or tap to browse
+          <div class="file-name" id="file-name"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <div class="field-label">SONG TITLE</div>
+        <input type="text" id="title" placeholder="e.g. Bohemian Rhapsody">
+      </div>
+      <div class="field">
+        <div class="field-label">ARTIST</div>
+        <input type="text" id="artist" placeholder="e.g. Queen">
+      </div>
+    </div>
+
+    <button class="process-btn" id="process-btn" onclick="submitJob()">PROCESS SONG</button>
+  </div>
+
+  <!-- Jobs -->
+  <div id="jobs-section">
+    <div class="jobs-header">
+      <div class="label" style="margin:0">JOBS</div>
+      <button class="btn-ghost" style="font-size:0.65rem;padding:0.3rem 0.6rem" onclick="clearCompleted()">CLEAR DONE</button>
+    </div>
+    <div id="jobs-list"></div>
+  </div>
+
+</main>
+
+<footer>
+  <span>FORGE — LAB DIRECTOR</span>
+  <span>BS-ROFORMER + LRCLIB + TORCHCREPE + MOVIEPY</span>
+</footer>
+
+<script>
+  const BACKEND_KEY = 'phantom_karaoke_backend';
+  let backendUrl = localStorage.getItem(BACKEND_KEY) || 'https://thomasnguyens-macbook-pro-1.tail4fc6de.ts.net/karaoke-api';
+  document.getElementById('backend-url').value = backendUrl;
+
+  // Jobs in-memory + localStorage persistence
+  let jobs = JSON.parse(localStorage.getItem('karaoke_jobs') || '[]');
+
+  document.getElementById('backend-url').addEventListener('change', e => {
+    backendUrl = e.target.value.replace(/\/$/, '');
+    localStorage.setItem(BACKEND_KEY, backendUrl);
+    testBackend();
+  });
+
+  function saveJobs() {
+    localStorage.setItem('karaoke_jobs', JSON.stringify(jobs));
+  }
+
+  async function testBackend() {
+    const dot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const warn = document.getElementById('warn-bar');
+    dot.className = 'dot';
+    statusText.textContent = 'checking...';
+    try {
+      const res = await fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        dot.className = 'dot online';
+        statusText.textContent = 'backend online';
+        warn.classList.remove('visible');
+      } else throw new Error();
+    } catch {
+      dot.className = 'dot offline';
+      statusText.textContent = 'backend offline';
+      warn.classList.add('visible');
+    }
+  }
+
+  function onFileSelect(input) {
+    const file = input.files[0];
+    const zone = document.getElementById('file-zone');
+    const nameEl = document.getElementById('file-name');
+    if (file) {
+      zone.classList.add('has-file');
+      nameEl.textContent = file.name;
+      // Auto-fill title from filename if empty
+      if (!document.getElementById('title').value) {
+        const stem = file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+        document.getElementById('title').value = stem;
+      }
+    } else {
+      zone.classList.remove('has-file');
+      nameEl.textContent = '';
+    }
+  }
+
+  async function submitJob() {
+    const file = document.getElementById('audio-file').files[0];
+    const title = document.getElementById('title').value.trim();
+    const artist = document.getElementById('artist').value.trim();
+
+    if (!file) return alert('Select an audio file.');
+    if (!title) return alert('Enter a song title.');
+    if (!artist) return alert('Enter an artist name.');
+
+    const btn = document.getElementById('process-btn');
+    btn.disabled = true;
+    btn.textContent = 'UPLOADING...';
+
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('title', title);
+      form.append('artist', artist);
+
+      const res = await fetch(`${backendUrl}/api/process`, {
+        method: 'POST',
+        body: form,
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+
+      jobs.unshift({ job_id: data.job_id, title, artist, status: 'queued' });
+      saveJobs();
+      renderJobs();
+      pollJob(data.job_id);
+
+      // Reset form
+      document.getElementById('audio-file').value = '';
+      document.getElementById('title').value = '';
+      document.getElementById('artist').value = '';
+      document.getElementById('file-name').textContent = '';
+      document.getElementById('file-zone').classList.remove('has-file');
+
+    } catch (e) {
+      alert(`Error: ${e.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'PROCESS SONG';
+    }
+  }
+
+  async function pollJob(jobId) {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${backendUrl}/api/status/${jobId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const idx = jobs.findIndex(j => j.job_id === jobId);
+        if (idx >= 0) {
+          jobs[idx].status = data.status;
+          jobs[idx].download_url = data.download_url;
+          jobs[idx].error = data.error;
+          saveJobs();
+          renderJobs();
+        }
+        if (data.status === 'complete' || data.status === 'error') {
+          clearInterval(interval);
+        }
+      } catch {}
+    }, 4000);
+  }
+
+  function renderJobs() {
+    const section = document.getElementById('jobs-section');
+    const list = document.getElementById('jobs-list');
+
+    if (!jobs.length) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = 'block';
+    list.innerHTML = jobs.map(job => {
+      const statusLabel = {
+        queued: 'QUEUED',
+        processing: 'PROCESSING',
+        complete: 'COMPLETE',
+        error: 'ERROR',
+      }[job.status] || job.status.toUpperCase();
+
+      const dlButton = job.status === 'complete' && job.download_url
+        ? `<button class="download-btn" style="display:block" onclick="downloadJob('${job.job_id}', '${job.title}')">DOWNLOAD</button>`
+        : '';
+
+      return `
+        <div class="job-card" id="job-${job.job_id}">
+          <div class="job-info">
+            <div class="job-title">${job.title}</div>
+            <div class="job-meta">${job.artist}${job.error ? ' — ' + job.error.slice(0, 80) : ''}</div>
+          </div>
+          <span class="job-status ${job.status}">${statusLabel}</span>
+          ${dlButton}
+        </div>`;
+    }).join('');
+  }
+
+  async function downloadJob(jobId, title) {
+    const url = `${backendUrl}/api/download/${jobId}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/\s+/g, '_')}_karaoke.mp4`;
+    a.click();
+  }
+
+  function clearCompleted() {
+    jobs = jobs.filter(j => j.status !== 'complete' && j.status !== 'error');
+    saveJobs();
+    renderJobs();
+  }
+
+  // Resume polling for in-progress jobs on page load
+  jobs.forEach(job => {
+    if (job.status === 'queued' || job.status === 'processing') {
+      pollJob(job.job_id);
+    }
+  });
+
+  renderJobs();
+  testBackend();
+</script>
+
+</body>
+</html>
