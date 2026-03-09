@@ -280,6 +280,10 @@
       <input type="text" id="backend-url" value="https://thomasnguyens-macbook-pro-1.tail4fc6de.ts.net/karaoke-api">
       <button class="btn-ghost" onclick="testBackend()">TEST</button>
     </div>
+    <div style="margin-top:0.6rem">
+      <div class="label" style="font-size:0.6rem;margin-bottom:0.3rem">API KEY</div>
+      <input type="password" id="api-key" placeholder="Enter API key" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:0.5rem 0.7rem;font-family:inherit;font-size:0.75rem;border-radius:4px">
+    </div>
   </div>
 
   <!-- Offline warning -->
@@ -334,8 +338,11 @@
 
 <script>
   const BACKEND_KEY = 'phantom_karaoke_backend';
+  const API_KEY_STORAGE = 'phantom_karaoke_apikey';
   let backendUrl = localStorage.getItem(BACKEND_KEY) || 'https://thomasnguyens-macbook-pro-1.tail4fc6de.ts.net/karaoke-api';
+  let apiKey = localStorage.getItem(API_KEY_STORAGE) || '';
   document.getElementById('backend-url').value = backendUrl;
+  document.getElementById('api-key').value = apiKey;
 
   // Jobs in-memory + localStorage persistence
   let jobs = JSON.parse(localStorage.getItem('karaoke_jobs') || '[]');
@@ -344,6 +351,11 @@
     backendUrl = e.target.value.replace(/\/$/, '');
     localStorage.setItem(BACKEND_KEY, backendUrl);
     testBackend();
+  });
+
+  document.getElementById('api-key').addEventListener('change', e => {
+    apiKey = e.target.value.trim();
+    localStorage.setItem(API_KEY_STORAGE, apiKey);
   });
 
   function saveJobs() {
@@ -409,6 +421,7 @@
 
       const res = await fetch(`${backendUrl}/api/process`, {
         method: 'POST',
+        headers: { 'X-API-Key': apiKey },
         body: form,
       });
 
@@ -438,7 +451,9 @@
   async function pollJob(jobId) {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${backendUrl}/api/status/${jobId}`);
+        const res = await fetch(`${backendUrl}/api/status/${jobId}`, {
+          headers: { 'X-API-Key': apiKey },
+        });
         if (!res.ok) return;
         const data = await res.json();
         const idx = jobs.findIndex(j => j.job_id === jobId);
@@ -491,11 +506,17 @@
   }
 
   async function downloadJob(jobId, title) {
-    const url = `${backendUrl}/api/download/${jobId}`;
+    const res = await fetch(`${backendUrl}/api/download/${jobId}`, {
+      headers: { 'X-API-Key': apiKey },
+    });
+    if (!res.ok) return alert('Download failed.');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `${title.replace(/\s+/g, '_')}_karaoke.mp4`;
     a.click();
+    URL.revokeObjectURL(url);
   }
 
   function clearCompleted() {

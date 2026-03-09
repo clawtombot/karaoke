@@ -4,6 +4,9 @@ Runs on port 8001. Accepts audio uploads, spawns pipeline.py as subprocess,
 provides status polling and output download.
 
 Run: python server.py
+
+Auth: set KARAOKE_API_KEY in .env — all /api/* routes require
+      X-API-Key: <key> header. /health is public for uptime checks.
 """
 
 import json
@@ -14,7 +17,7 @@ import uuid
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
@@ -25,6 +28,7 @@ PORT = int(os.getenv("PORT", "8001"))
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "./uploads"))
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "./outputs"))
 TMP_DIR = Path(os.getenv("TMP_DIR", "./tmp"))
+API_KEY = os.getenv("KARAOKE_API_KEY", "")
 
 for d in [UPLOAD_DIR, OUTPUT_DIR, TMP_DIR]:
     d.mkdir(parents=True, exist_ok=True)
@@ -42,6 +46,14 @@ app.add_middleware(
 jobs: dict[str, dict] = {}
 
 
+def require_key(x_api_key: str = Header(default="")):
+    """Dependency: validates X-API-Key header against KARAOKE_API_KEY env var."""
+    if not API_KEY:
+        raise HTTPException(status_code=500, detail="Server misconfigured: KARAOKE_API_KEY not set")
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 @app.get("/")
 def root():
     return {"status": "ok", "service": "PHANTOM Karaoke Server"}
@@ -49,6 +61,7 @@ def root():
 
 @app.get("/health")
 def health():
+    """Public — used by frontend to check connectivity."""
     return {"status": "ok"}
 
 
@@ -57,14 +70,12 @@ async def process(
     file: UploadFile = File(...),
     title: str = Form(...),
     artist: str = Form(...),
+    x_api_key: str = Header(default=""),
 ):
-    """
-    Accept audio file upload and kick off pipeline.
-    Returns job_id for polling.
-    """
+    require_key(x_api_key)
+
     job_id = str(uuid.uuid4())
 
-    # Save upload
     ext = Path(file.filename).suffix or ".mp3"
     upload_path = UPLOAD_DIR / f"{job_id}{ext}"
     output_path = OUTPUT_DIR / f"{job_id}.mp4"
@@ -81,7 +92,6 @@ async def process(
         "error": None,
     }
 
-    # Spawn pipeline subprocess
     _spawn_pipeline(job_id, str(upload_path), str(output_path), title, artist)
 
     return {"job_id": job_id, "status": "queued"}
@@ -107,7 +117,7 @@ def _spawn_pipeline(job_id, input_path, output_path, title, artist):
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=3600,  # 1 hour max
+                timeout=3600,
             )
             if result.returncode == 0:
                 jobs[job_id]["status"] = "complete"
@@ -126,8 +136,8 @@ def _spawn_pipeline(job_id, input_path, output_path, title, artist):
 
 
 @app.get("/api/status/{job_id}")
-def get_status(job_id: str):
-    """Poll job status."""
+def get_status(job_id: str, x_api_key: str = Header(default="")):
+    require_key(x_api_key)
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
     job = jobs[job_id]
@@ -145,8 +155,8 @@ def get_status(job_id: str):
 
 
 @app.get("/api/download/{job_id}")
-def download(job_id: str):
-    """Download completed MP4."""
+def download(job_id: str, x_api_key: str = Header(default="")):
+    require_key(x_api_key)
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
     job = jobs[job_id]
@@ -161,8 +171,8 @@ def download(job_id: str):
 
 
 @app.get("/api/jobs")
-def list_jobs():
-    """List all jobs and their statuses."""
+def list_jobs(x_api_key: str = Header(default="")):
+    require_key(x_api_key)
     return [
         {"job_id": jid, "status": j["status"], "title": j.get("title")}
         for jid, j in jobs.items()
@@ -170,6 +180,9 @@ def list_jobs():
 
 
 if __name__ == "__main__":
+    if not API_KEY:
+        print("WARNING: KARAOKE_API_KEY not set in .env — server will reject all /api/* requests")
+    else:
+        print(f"API key auth: enabled")
     print(f"PHANTOM Karaoke Server starting on port {PORT}")
-    print(f"Lab frontend: https://thomasnguyens-macbook-pro-1.tail4fc6de.ts.net/karaoke/")
     uvicorn.run(app, host="0.0.0.0", port=PORT)
