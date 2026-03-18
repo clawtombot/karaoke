@@ -6,6 +6,7 @@ import logging
 import os
 import socket
 import subprocess
+import sys
 import time
 from typing import Any
 
@@ -63,6 +64,11 @@ class Karaoke:
     now_playing_notification: str | None = None
     volume: float
 
+    # Vocal splitter state
+    vocal_splitter_enabled: bool = False
+    vocal_mode: str = "mixed"  # "mixed" | "vocal" | "nonvocal"
+    _vocal_worker: subprocess.Popen | None = None
+
     qr_code_path: str | None = None
     base_path: str = os.path.dirname(__file__)
     loop_interval: int = 500  # in milliseconds
@@ -98,6 +104,11 @@ class Karaoke:
         socketio=None,
         streaming_format: str = "hls",
         url: str | None = None,
+        vocal_gpu: int | None = None,
+        vocal_mode: str = "mixed",
+        vocal_model: str | None = None,
+        vocal_splitter: bool = False,
+        vocal_tta: bool = False,
         youtubedl_proxy: str | None = None,
         # Preference parameters (defaults from PreferenceManager.DEFAULTS)
         avsync: float | None = None,
@@ -251,6 +262,82 @@ class Karaoke:
             additional_ytdl_args=self.additional_ytdl_args,
         )
         self.download_manager.start()
+
+        # Vocal splitter setup
+        if vocal_splitter:
+            self._init_vocal_splitter(vocal_mode, vocal_model, vocal_gpu, vocal_tta)
+
+    def _init_vocal_splitter(
+        self,
+        vocal_mode: str,
+        model_path: str | None,
+        gpu: int | None,
+        tta: bool,
+    ) -> None:
+        """Set up vocal splitting: create output dirs and launch the worker process."""
+        self.vocal_splitter_enabled = True
+        self.vocal_mode = vocal_mode if vocal_mode in ("mixed", "vocal", "nonvocal") else "mixed"
+
+        nonvocal_dir = os.path.join(self.download_path, "nonvocal")
+        vocal_dir = os.path.join(self.download_path, "vocal")
+        os.makedirs(nonvocal_dir, exist_ok=True)
+        os.makedirs(vocal_dir, exist_ok=True)
+
+        if model_path is None:
+            model_path = os.path.join(os.path.dirname(__file__), "models", "baseline.pth")
+
+        cmd = [
+            sys.executable,
+            "-m",
+            "pikaraoke.lib.vocal_splitter",
+            "--download-path",
+            self.download_path,
+            "--model",
+            model_path,
+        ]
+        if gpu is not None:
+            cmd += ["--gpu", str(gpu)]
+        if tta:
+            cmd.append("--tta")
+
+        logging.info("Starting vocal splitter worker: %s", " ".join(cmd))
+        self._vocal_worker = subprocess.Popen(cmd)
+
+    def get_vocal_track_path(self, file_path: str) -> str | None:
+        """Return the alternate audio track path for the current vocal mode, or None if unavailable.
+
+        Args:
+            file_path: Path to the song being played.
+
+        Returns:
+            Path to the vocal/nonvocal M4A if it exists, else None.
+        """
+        if not self.vocal_splitter_enabled or self.vocal_mode == "mixed":
+            return None
+
+        basename = os.path.basename(file_path)
+        track_path = os.path.join(self.download_path, self.vocal_mode, basename + ".m4a")
+        if os.path.isfile(track_path):
+            return track_path
+
+        logging.debug("Vocal track not yet ready: %s", track_path)
+        return None
+
+    def set_vocal_mode(self, mode: str) -> bool:
+        """Switch vocal playback mode.
+
+        Args:
+            mode: One of 'mixed', 'vocal', 'nonvocal'.
+
+        Returns:
+            True if mode was changed, False if invalid.
+        """
+        if mode not in ("mixed", "vocal", "nonvocal"):
+            return False
+        self.vocal_mode = mode
+        logging.info("Vocal mode set to: %s", mode)
+        self.update_now_playing_socket()
+        return True
 
     def _load_preferences(self, **cli_overrides: Any) -> None:
         """Load preference-driven attributes from config file.
@@ -457,6 +544,8 @@ class Karaoke:
             "up_next": next_song["title"] if next_song else None,
             "next_user": next_song["user"] if next_song else None,
             "volume": self.volume,
+            "vocal_splitter_enabled": self.vocal_splitter_enabled,
+            "vocal_mode": self.vocal_mode,
         }
 
     def update_now_playing_socket(self) -> None:
@@ -495,8 +584,9 @@ class Karaoke:
                     song = self.queue_manager.pop_next()
                     if not song:
                         continue
+                    alternate_audio = self.get_vocal_track_path(song["file"])
                     result = self.playback_controller.play_file(
-                        song["file"], song["user"], song["semitones"]
+                        song["file"], song["user"], song["semitones"], alternate_audio
                     )
 
                     if not result.success and result.error:

@@ -156,6 +156,15 @@
 			}
 		}
 
+		function setVocalMode(mode) {
+			$.get("/vocal_mode/" + mode, function(data) {
+				["mixed", "nonvocal", "vocal"].forEach(function(m) {
+					$("#vocal-" + m).removeClass("is-primary");
+				});
+				$("#vocal-" + data.vocal_mode).addClass("is-primary");
+			});
+		}
+
 		//for first time load of splash screen
 		loadNowPlaying();
 		//for pushed updates to now playing state
@@ -223,6 +232,25 @@
 		</div>
 	</div>
 	<hr />
+
+	{% if vocal_splitter_enabled %}
+	<hr />
+	<div>
+		<h4>{% trans %}Vocal Mode{% endtrans %}</h4>
+		<div class="buttons has-addons" style="margin-top: 8px">
+			<button id="vocal-mixed" class="button is-rounded is-small {% if vocal_mode == 'mixed' %}is-primary{% endif %}" onclick="setVocalMode('mixed')">
+				{% trans %}Mixed{% endtrans %}
+			</button>
+			<button id="vocal-nonvocal" class="button is-rounded is-small {% if vocal_mode == 'nonvocal' %}is-primary{% endif %}" onclick="setVocalMode('nonvocal')">
+				{% trans %}Instrumental{% endtrans %}
+			</button>
+			<button id="vocal-vocal" class="button is-rounded is-small {% if vocal_mode == 'vocal' %}is-primary{% endif %}" onclick="setVocalMode('vocal')">
+				{% trans %}Vocals Only{% endtrans %}
+			</button>
+		</div>
+		<p class="is-size-7 has-text-grey" style="margin-top: 4px">{% trans %}Takes effect on the next song.{% endtrans %}</p>
+	</div>
+	{% endif %}
 
 	{% if is_transpose_enabled %}
 	<div class="is-flex" style="justify-content: space-between">

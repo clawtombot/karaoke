@@ -317,6 +317,42 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
 
+    # --- Vocal splitter arguments ---
+
+    parser.add_argument(
+        "--vocal-splitter",
+        action="store_true",
+        help="Enable DNN vocal splitting. Creates nonvocal/ and vocal/ subdirectories in the download path and processes songs in the background. Requires torch, librosa, soundfile. Falls back to stereo subtraction if torch is not installed.",
+        required=False,
+    )
+    parser.add_argument(
+        "--vocal-model",
+        nargs="+",
+        help="Path to the vocal splitter model weights (.pth). Defaults to the bundled baseline.pth.",
+        default=None,
+        required=False,
+    )
+    parser.add_argument(
+        "--vocal-gpu",
+        type=int,
+        help="CUDA device index for DNN inference. Set to -1 to force CPU. Default: auto-detect.",
+        default=None,
+        required=False,
+    )
+    parser.add_argument(
+        "--vocal-mode",
+        choices=["mixed", "vocal", "nonvocal"],
+        help="Default playback mode: 'mixed' (original), 'nonvocal' (instrumental), or 'vocal' (vocals only). (default: mixed)",
+        default="mixed",
+        required=False,
+    )
+    parser.add_argument(
+        "--vocal-tta",
+        action="store_true",
+        help="Enable test-time augmentation for higher quality DNN separation (slower).",
+        required=False,
+    )
+
     args = parser.parse_args()
 
     # Additional sanitization of args (only process if provided)
@@ -346,5 +382,6 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     args.bg_music_path = bg_music_path
     args.bg_video_path = bg_video_path
     args.download_path = dl_path
+    args.vocal_model = arg_path_parse(args.vocal_model)
 
     return args

@@ -45,6 +45,7 @@ from pikaraoke.routes.search import search_bp
 from pikaraoke.routes.socket_events import setup_socket_events
 from pikaraoke.routes.splash import splash_bp
 from pikaraoke.routes.stream import stream_bp
+from pikaraoke.routes.vocal import vocal_bp
 
 _ = flask_babel.gettext
 
@@ -89,6 +90,7 @@ _api_blueprints = [
     nowplaying_bp,
     stream_bp,
     metadata_bp,
+    vocal_bp,
 ]
 
 # Blueprints hidden from /apidocs (internal UI routes)
@@ -202,6 +204,11 @@ def main() -> None:
         additional_ytdl_args=getattr(args, "ytdl_args", None),
         socketio=socketio,
         preferred_language=args.preferred_language,
+        vocal_splitter=args.vocal_splitter,
+        vocal_model=args.vocal_model,
+        vocal_gpu=args.vocal_gpu,
+        vocal_mode=args.vocal_mode,
+        vocal_tta=args.vocal_tta,
     )
 
     # expose karaoke object to the flask app

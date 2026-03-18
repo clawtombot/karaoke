@@ -87,6 +87,8 @@ class MockKaraoke:
         self.volume = 0.85
         self.running = True
         self.now_playing_notification = None
+        self.vocal_splitter_enabled = False
+        self.vocal_mode = "mixed"
 
         # Set preferences that differ from defaults
         self.preferences.set("enable_fair_queue", True)

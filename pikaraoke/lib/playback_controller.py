@@ -73,7 +73,13 @@ class PlaybackController:
         """Get the current FFmpeg process."""
         return self.stream_manager.ffmpeg_process
 
-    def play_file(self, file_path: str, user: str, semitones: int = 0) -> PlaybackResult:
+    def play_file(
+        self,
+        file_path: str,
+        user: str,
+        semitones: int = 0,
+        alternate_audio_path: str | None = None,
+    ) -> PlaybackResult:
         """Start playback of a media file.
 
         Blocks until client connects or timeout occurs.
@@ -82,6 +88,8 @@ class PlaybackController:
             file_path: Path to the media file to play.
             user: User who queued the song.
             semitones: Number of semitones to transpose (0 = no change).
+            alternate_audio_path: Optional M4A to substitute for source audio
+                (used for vocal/nonvocal playback modes).
 
         Returns:
             PlaybackResult with success status and stream information.
@@ -90,7 +98,7 @@ class PlaybackController:
             f"Playing file: {file_path} for user: {user}, transposed {semitones} semitones"
         )
 
-        result = self.stream_manager.play_file(file_path, semitones)
+        result = self.stream_manager.play_file(file_path, semitones, alternate_audio_path)
 
         if not result.success:
             return result

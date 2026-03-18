@@ -31,7 +31,15 @@ dev = [
   "pre-commit>=3.7.1",
   "pytest>=9.0.2",
   "pytest-cov>=7.0.0",
-
+]
+# Install vocal splitting deps with: pip install pikaraoke[vocal]
+# GPU support requires a CUDA-enabled torch build — see https://pytorch.org/get-started/locally/
+vocal = [
+  "torch>=1.5.1",
+  "librosa>=0.10.0",
+  "soundfile>=0.12.0",
+  "tqdm>=4.30",
+  "numpy>=1.21.0",
 ]
 
 [dependency-groups]

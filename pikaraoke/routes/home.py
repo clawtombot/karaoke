@@ -25,4 +25,6 @@ def home():
         admin=is_admin(),
         is_transpose_enabled=k.is_transpose_enabled,
         volume=k.volume,
+        vocal_splitter_enabled=k.vocal_splitter_enabled,
+        vocal_mode=k.vocal_mode,
     )
