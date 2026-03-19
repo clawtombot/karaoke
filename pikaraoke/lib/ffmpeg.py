@@ -177,7 +177,7 @@ def build_ffmpeg_cmd(
         )
 
     args = output.get_args()
-    logging.debug(f"COMMAND: ffmpeg " + " ".join(args))
+    logging.info(f"COMMAND: ffmpeg " + " ".join(args))
     return output
 
 
@@ -250,12 +250,25 @@ def supports_hardware_h264_encoding() -> bool:
         return False
 
     has_encoder = "h264_v4l2m2m" in codecs.stdout.decode()
-    if has_encoder:
-        logging.info("ARM platform detected, using h264_v4l2m2m hardware encoder")
-    else:
+    if not has_encoder:
         logging.debug("ARM platform but h264_v4l2m2m not available")
+        return False
 
-    return has_encoder
+    # Verify the encoder actually works (e.g. not in a container without /dev/video0)
+    try:
+        test = subprocess.run(
+            ["ffmpeg", "-f", "lavfi", "-i", "nullsrc=s=64x64:d=0.1", "-vcodec", "h264_v4l2m2m", "-f", "null", "/dev/null"],
+            capture_output=True,
+            timeout=5,
+        )
+        if test.returncode != 0:
+            logging.debug("h264_v4l2m2m present but not functional (no V4L2 device), using libx264")
+            return False
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
+    logging.info("ARM platform detected, using h264_v4l2m2m hardware encoder")
+    return True
 
 
 def is_ffmpeg_installed() -> bool:

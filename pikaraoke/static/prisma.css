@@ -1,0 +1,825 @@
+/* ══════════════════════════════════════════════════════════════════════
+   PRISMA — Glass Club × Neo-Booth design
+   Overrides Bulma dark theme for pikaraoke
+   ══════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ── Tokens ──────────────────────────────────────────────────────────── */
+:root {
+  --pr-bg: #0d0618;
+  --pr-bg2: #080412;
+  --pr-surface: rgba(255,255,255,0.06);
+  --pr-surface2: rgba(255,255,255,0.09);
+  --pr-border: rgba(255,255,255,0.08);
+  --pr-border2: rgba(255,255,255,0.14);
+  --pr-purple: #7c3aed;
+  --pr-teal: #00d2ff;
+  --pr-pink: #ec4899;
+  --pr-green: #22c55e;
+  --pr-amber: #f59e0b;
+  --pr-grad: linear-gradient(135deg, #7c3aed, #00d2ff);
+  --pr-glow-p: 0 0 20px rgba(124,58,237,0.35);
+  --pr-glow-t: 0 0 16px rgba(0,210,255,0.4);
+  --pr-text: #f0ecff;
+  --pr-dim: rgba(240,236,255,0.5);
+  --pr-faint: rgba(240,236,255,0.22);
+  --pr-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --pr-display: 'Syne', system-ui, sans-serif;
+  --pr-body: 'Inter', system-ui, sans-serif;
+}
+
+/* ── Reset & Base ────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  background: var(--pr-bg) !important;
+  color: var(--pr-text) !important;
+  font-family: var(--pr-body) !important;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* Ambient orb background — rich purple-teal atmosphere */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 700px 600px at -5% -5%,   rgba(124,58,237,0.28) 0%, transparent 55%),
+    radial-gradient(ellipse 500px 400px at 105% 100%, rgba(0,210,255,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 400px 300px at 55% 110%,  rgba(236,72,153,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 300px 250px at 95% 5%,    rgba(124,58,237,0.12) 0%, transparent 55%);
+}
+
+/* ── LED strip at very top ───────────────────────────────────────────── */
+body::after {
+  content: '';
+  position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 9999;
+  background: linear-gradient(90deg, transparent 0%, #7c3aed 25%, #a855f7 45%, #00d2ff 75%, transparent 100%);
+  box-shadow: 0 0 18px rgba(0,210,255,0.7), 0 0 36px rgba(124,58,237,0.5), 0 0 60px rgba(168,85,247,0.25);
+}
+
+/* ── Container ───────────────────────────────────────────────────────── */
+.container {
+  position: relative; z-index: 1;
+  max-width: 1000px !important;
+  padding: 2px 12px 16px !important;
+}
+
+/* ── Navbar ──────────────────────────────────────────────────────────── */
+.navbar {
+  background: rgba(8,4,18,0.92) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border-bottom: 1px solid rgba(124,58,237,0.25) !important;
+  box-shadow: 0 1px 0 rgba(124,58,237,0.1), 0 4px 24px rgba(0,0,0,0.4) !important;
+  border-radius: 0 !important;
+  position: sticky; top: 2px; z-index: 100;
+}
+
+.navbar-brand { align-items: center; gap: 2px; }
+
+.navbar-brand > .navbar-item,
+.navbar-menu .navbar-item {
+  color: var(--pr-dim) !important;
+  font-family: var(--pr-display) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  border-radius: 8px !important;
+  padding: 6px 12px !important;
+  transition: all 0.2s !important;
+  border: 1px solid transparent !important;
+}
+
+.navbar-brand > .navbar-item:hover,
+.navbar-menu .navbar-item:hover {
+  background: var(--pr-surface) !important;
+  color: var(--pr-text) !important;
+}
+
+.navbar-brand > .navbar-item.is-active,
+.navbar-menu .navbar-item.is-active {
+  background: rgba(124,58,237,0.18) !important;
+  color: #a78bfa !important;
+  border-color: rgba(124,58,237,0.35) !important;
+}
+
+/* Logo / brand name */
+.navbar-brand > .navbar-item:first-child {
+  font-weight: 800 !important;
+  font-size: 15px !important;
+  background: var(--pr-grad) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  border: none !important;
+}
+.navbar-brand > .navbar-item:first-child:hover {
+  background: var(--pr-grad) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+.navbar-burger { color: var(--pr-dim) !important; }
+.navbar-burger:hover { background: var(--pr-surface) !important; color: var(--pr-text) !important; }
+.navbar-burger span { background: var(--pr-dim) !important; }
+
+.navbar-menu { background: rgba(13,6,24,0.95) !important; }
+
+@media screen and (max-width: 1088px) {
+  .navbar-menu.is-active {
+    position: absolute !important;
+    right: 8px !important;
+    border-radius: 12px !important;
+    border: 1px solid var(--pr-border) !important;
+    backdrop-filter: blur(20px) !important;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6) !important;
+    min-width: 180px !important;
+  }
+}
+
+/* ── Main box ────────────────────────────────────────────────────────── */
+.box {
+  background: rgba(13,6,24,0.90) !important;
+  border: 1px solid rgba(124,58,237,0.22) !important;
+  border-radius: 16px !important;
+  /* backdrop-filter on outer box removed — parent compositing layer blocks child GPU layers */
+  box-shadow: 0 24px 64px rgba(0,0,0,0.65), 0 0 0 1px rgba(124,58,237,0.08), var(--pr-glow-p) !important;
+  color: var(--pr-text) !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+/* Home page box: remove default padding to allow 2-col grid */
+.box .title { display: none; }
+.box .content { padding: 0; margin: 0; }
+
+/* ── Typography ──────────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6,
+.title, .subtitle {
+  font-family: var(--pr-display) !important;
+  color: var(--pr-text) !important;
+}
+
+/* ── Notifications ───────────────────────────────────────────────────── */
+.notification {
+  background: rgba(13,6,24,0.95) !important;
+  border: 1px solid var(--pr-border2) !important;
+  border-radius: 12px !important;
+  backdrop-filter: blur(16px) !important;
+  color: var(--pr-text) !important;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6) !important;
+}
+.notification.is-info { border-color: rgba(0,210,255,0.4) !important; }
+.notification.is-success { border-color: rgba(34,197,94,0.4) !important; }
+.notification.is-warning { border-color: rgba(245,158,11,0.4) !important; }
+.notification.is-danger { border-color: rgba(236,72,153,0.4) !important; }
+.notification .delete { background: var(--pr-surface2) !important; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────── */
+.button {
+  background: var(--pr-surface) !important;
+  border: 1px solid var(--pr-border2) !important;
+  color: var(--pr-text) !important;
+  font-family: var(--pr-body) !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  transition: all 0.2s !important;
+}
+.button:hover {
+  background: var(--pr-surface2) !important;
+  border-color: rgba(124,58,237,0.4) !important;
+  color: var(--pr-text) !important;
+}
+.button.is-primary, .button.is-rounded.is-primary {
+  background: var(--pr-grad) !important;
+  border: none !important;
+  color: #fff !important;
+  box-shadow: var(--pr-glow-p) !important;
+}
+.button.is-rounded { border-radius: 20px !important; }
+.button.is-small { font-size: 11px !important; padding: 4px 12px !important; }
+
+/* ── Form elements ───────────────────────────────────────────────────── */
+input[type="range"] {
+  accent-color: var(--pr-teal);
+}
+.input, .textarea, .select select {
+  background: var(--pr-surface) !important;
+  border: 1px solid var(--pr-border2) !important;
+  color: var(--pr-text) !important;
+  border-radius: 8px !important;
+}
+.input:focus, .textarea:focus, .select select:focus {
+  border-color: rgba(124,58,237,0.5) !important;
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.12) !important;
+}
+.input::placeholder { color: var(--pr-faint) !important; }
+
+/* ── Tables ──────────────────────────────────────────────────────────── */
+table { color: var(--pr-text) !important; }
+tr:nth-child(even) { background: rgba(255,255,255,0.03) !important; }
+th { color: var(--pr-dim) !important; font-family: var(--pr-mono) !important; font-size: 11px !important; letter-spacing: 0.06em !important; }
+td { border-color: var(--pr-border) !important; }
+
+/* ── Tags ────────────────────────────────────────────────────────────── */
+.tag { background: var(--pr-surface2) !important; color: var(--pr-dim) !important; border-radius: 6px !important; font-family: var(--pr-mono) !important; font-size: 10px !important; }
+.tag.is-primary { background: rgba(124,58,237,0.2) !important; color: #a78bfa !important; }
+
+/* ── Flash messages ──────────────────────────────────────────────────── */
+.has-text-warning { color: #fbbf24 !important; }
+.has-text-success { color: var(--pr-teal) !important; }
+.has-text-grey { color: var(--pr-faint) !important; }
+.has-text-danger { color: var(--pr-pink) !important; }
+.has-background-black-bis { background: rgba(0,0,0,0.3) !important; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   HOME PAGE — 2-column layout
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Override box padding for home page */
+.pr-home-wrap { padding: 12px; }
+
+/* 2-column grid */
+.pr-grid {
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  gap: 12px;
+  align-items: start;
+}
+
+/* Glass card utility */
+.pr-card {
+  background: rgba(18,10,32,0.82);
+  border: 1px solid rgba(124,58,237,0.2);
+  border-radius: 14px;
+  overflow: hidden;
+  /* backdrop-filter removed — caused 4 GPU compositing layers → jank on mobile */
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(0,0,0,0.3);
+}
+
+.pr-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--pr-border);
+  font-family: var(--pr-display);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pr-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pr-card-body { padding: 12px 14px; }
+
+/* ── Pitch Graph panel ───────────────────────────────────────────────── */
+.pr-pitch-panel {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(0,210,255,0.3);
+  box-shadow: 0 0 30px rgba(0,210,255,0.15), 0 0 60px rgba(124,58,237,0.1), inset 0 1px 0 rgba(0,210,255,0.1);
+  margin-bottom: 10px;
+  background: rgba(0,0,0,0.3);
+}
+
+.pr-pitch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(0,210,255,0.05);
+  border-bottom: 1px solid var(--pr-border);
+}
+
+.pr-pitch-title {
+  font-family: var(--pr-display);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pr-text);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.pr-proto-badge {
+  font-size: 9px;
+  font-family: var(--pr-mono);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(245,158,11,0.15);
+  border: 1px solid rgba(245,158,11,0.4);
+  color: var(--pr-amber);
+}
+
+.pr-pitch-score-row {
+  font-family: var(--pr-mono);
+  font-size: 11px;
+  color: var(--pr-teal);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pr-pitch-score-row span { color: var(--pr-faint); font-size: 9px; }
+
+/* The graph canvas: 3 octaves = 36 rows × 3px = 108px */
+.pr-pitch-graph {
+  position: relative;
+  height: 108px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.15) 100%);
+  overflow: hidden;
+  cursor: default;
+}
+
+/* Semitone grid: 2px bar + 1px gap per row */
+.pr-pitch-graph::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(0deg,
+    transparent, transparent 2px,
+    rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 3px
+  );
+  background-size: 100% 3px;
+  pointer-events: none;
+}
+
+/* Octave boundary: every 36px */
+.pr-pitch-graph::after {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(0deg,
+    transparent, transparent 35px,
+    rgba(255,255,255,0.08) 35px, rgba(255,255,255,0.08) 36px
+  );
+  background-size: 100% 36px;
+  pointer-events: none;
+}
+
+/* Y-axis labels */
+.pr-yaxis {
+  position: absolute;
+  left: 0; top: 0; bottom: 0; width: 26px;
+  background: linear-gradient(90deg, rgba(13,6,24,0.85), transparent);
+  z-index: 6;
+}
+.pr-ynote {
+  position: absolute; right: 3px;
+  font-family: var(--pr-mono);
+  font-size: 7px;
+  color: var(--pr-faint);
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+/* Playhead */
+.pr-playhead {
+  position: absolute;
+  left: 35%; top: 0; bottom: 0; width: 1px;
+  background: rgba(255,255,255,0.2);
+  z-index: 5;
+}
+.pr-playhead::before {
+  content: '▼';
+  position: absolute; top: -1px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 7px; color: rgba(255,255,255,0.3);
+}
+
+/* Note bars: 2px height, row = semitone index × 3px */
+.pr-note {
+  position: absolute;
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, rgba(124,58,237,0.7), rgba(0,210,255,0.6));
+  box-shadow: 0 0 4px rgba(0,210,255,0.3);
+}
+.pr-note.hit {
+  background: linear-gradient(90deg, rgba(0,210,255,0.85), rgba(34,197,94,0.7));
+  box-shadow: 0 0 6px rgba(0,210,255,0.5), 0 0 12px rgba(0,210,255,0.2);
+}
+.pr-note.miss {
+  background: rgba(236,72,153,0.4);
+  box-shadow: none;
+  opacity: 0.7;
+}
+.pr-note.current-note {
+  background: linear-gradient(90deg, rgba(0,210,255,0.9), rgba(124,58,237,0.7));
+  box-shadow: 0 0 10px rgba(0,210,255,0.7), 0 0 20px rgba(0,210,255,0.3);
+}
+
+/* SVG pitch line overlay */
+.pr-pitch-svg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  z-index: 4; pointer-events: none;
+}
+
+/* Score bar */
+.pr-pitch-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  background: rgba(0,0,0,0.2);
+  border-top: 1px solid var(--pr-border);
+}
+.pr-score-labels { display: flex; align-items: center; gap: 8px; font-family: var(--pr-mono); font-size: 9px; }
+.lbl-miss { color: var(--pr-pink); }
+.lbl-hit { color: var(--pr-teal); }
+.lbl-perf { color: var(--pr-green); }
+.pr-score-track {
+  flex: 1; height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px; overflow: visible; position: relative;
+}
+.pr-score-fill {
+  height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, rgba(124,58,237,0.8), rgba(0,210,255,0.9), rgba(34,197,94,0.8));
+  box-shadow: 0 0 8px rgba(0,210,255,0.4);
+  position: relative;
+}
+.pr-score-fill::after {
+  content: '';
+  position: absolute; right: -4px; top: 50%; transform: translateY(-50%);
+  width: 8px; height: 8px; border-radius: 50%; background: #fff;
+  box-shadow: 0 0 8px rgba(0,210,255,0.8);
+}
+
+/* ── Now Playing card ────────────────────────────────────────────────── */
+.pr-nowplaying {
+  margin-bottom: 10px;
+  border-color: rgba(124,58,237,0.3) !important;
+  box-shadow: 0 0 20px rgba(124,58,237,0.15), inset 0 1px 0 rgba(255,255,255,0.07) !important;
+  /* Reserve full expanded height — eliminates CLS from SocketIO fill-in. 346px = measured expanded height */
+  min-height: 346px;
+}
+
+/* Neon glow animation on video panel when active */
+@keyframes pr-neon-pulse {
+  0%,100% { box-shadow: 0 0 0 1px rgba(0,210,255,0.1), 0 0 40px rgba(124,58,237,0.25), 0 0 80px rgba(0,210,255,0.1), 0 8px 40px rgba(0,0,0,0.7); }
+  50% { box-shadow: 0 0 0 1px rgba(0,210,255,0.25), 0 0 55px rgba(124,58,237,0.4), 0 0 100px rgba(0,210,255,0.18), 0 8px 40px rgba(0,0,0,0.7); }
+}
+#pr-video-panel[style*="block"],
+#pr-video-panel:not([style*="none"]) {
+  animation: pr-neon-pulse 3s ease-in-out infinite;
+}
+.pr-np-inner {
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.pr-np-icon {
+  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  background: var(--pr-grad);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  box-shadow: var(--pr-glow-p);
+  position: relative;
+  overflow: hidden;
+}
+.pr-np-icon.paused { opacity: 0.6; }
+.pr-np-icon::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 40% 40%, rgba(255,255,255,0.15), transparent);
+}
+.pr-np-info { flex: 1; min-width: 0; }
+.pr-np-title {
+  font-family: var(--pr-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--pr-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.3;
+}
+.pr-np-singer {
+  font-size: 12px;
+  color: var(--pr-teal);
+  font-family: var(--pr-mono);
+  margin-top: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pr-np-key-badge {
+  font-family: var(--pr-mono); font-size: 10px;
+  padding: 2px 8px; border-radius: 5px;
+  background: rgba(0,210,255,0.1);
+  border: 1px solid rgba(0,210,255,0.3);
+  color: var(--pr-teal);
+  white-space: nowrap;
+}
+.pr-np-live {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--pr-mono); font-size: 10px; font-weight: 600;
+  color: var(--pr-pink);
+}
+.pr-live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--pr-pink);
+  box-shadow: 0 0 8px var(--pr-pink);
+  animation: pr-pulse 2s infinite;
+}
+@keyframes pr-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ── Progress bar ────────────────────────────────────────────────────── */
+.pr-progress-wrap { padding: 0 14px 12px; }
+.pr-progress-track {
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px; cursor: pointer; position: relative;
+}
+.pr-progress-fill {
+  height: 100%; border-radius: 2px;
+  background: var(--pr-grad);
+  box-shadow: var(--pr-glow-t);
+  width: 38%; position: relative;
+  transition: width 0.5s linear;
+}
+.pr-progress-fill::after {
+  content: '';
+  position: absolute; right: -5px; top: 50%; transform: translateY(-50%);
+  width: 10px; height: 10px; border-radius: 50%; background: #fff;
+  box-shadow: 0 0 10px rgba(0,210,255,0.8);
+}
+.pr-timestamps {
+  display: flex; justify-content: space-between;
+  padding: 5px 0 0;
+  font-family: var(--pr-mono); font-size: 10px; color: var(--pr-faint);
+}
+
+/* ── Controls row ────────────────────────────────────────────────────── */
+.pr-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 12px;
+  border-top: 1px solid var(--pr-border);
+}
+
+/* Override control-box visibility */
+.control-box { display: block !important; }
+
+.pr-ctrl-btn {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  background: var(--pr-surface) !important;
+  border: 1px solid var(--pr-border) !important;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px;
+  color: var(--pr-text) !important;
+  transition: all 0.2s;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.pr-ctrl-btn:hover {
+  background: var(--pr-surface2) !important;
+  border-color: rgba(124,58,237,0.4) !important;
+  color: var(--pr-text) !important;
+}
+.pr-ctrl-btn.primary {
+  background: var(--pr-grad) !important;
+  border: none !important;
+  box-shadow: var(--pr-glow-p) !important;
+  width: 46px; height: 46px; border-radius: 13px; font-size: 20px;
+}
+.pr-ctrl-btn.danger { color: var(--pr-pink) !important; }
+.pr-vol-section { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.pr-vol-label { font-family: var(--pr-mono); font-size: 10px; color: var(--pr-faint); }
+
+/* ── Adjusters row (vocal mode + transpose) ──────────────────────────── */
+.pr-adjusters {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--pr-border);
+}
+
+.pr-adj-label {
+  font-family: var(--pr-mono);
+  font-size: 9px; color: var(--pr-faint);
+  letter-spacing: 0.12em; margin-bottom: 5px;
+  display: block;
+}
+
+/* Vocal mode segmented control */
+.pr-seg {
+  display: flex;
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px; padding: 2px; gap: 2px;
+}
+.pr-seg-opt {
+  flex: 1; padding: 5px 6px;
+  border-radius: 7px;
+  font-size: 11px; font-weight: 600;
+  font-family: var(--pr-display);
+  color: var(--pr-faint);
+  text-align: center; cursor: pointer;
+  transition: all 0.2s; border: none; background: transparent;
+  white-space: nowrap;
+}
+.pr-seg-opt.active, .pr-seg-opt.is-primary {
+  background: rgba(124,58,237,0.2) !important;
+  color: #a78bfa !important;
+  box-shadow: inset 0 0 0 1px rgba(124,58,237,0.4) !important;
+}
+.pr-seg-opt:hover:not(.active):not(.is-primary) {
+  background: var(--pr-surface2);
+  color: var(--pr-text);
+}
+
+/* Transpose */
+.pr-key-block { display: flex; flex-direction: column; }
+.pr-key-row { display: flex; align-items: center; gap: 6px; }
+.pr-key-btn {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: var(--pr-surface) !important;
+  border: 1px solid var(--pr-border) !important;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--pr-text) !important;
+  cursor: pointer;
+  font-family: monospace;
+}
+.pr-key-val {
+  font-family: var(--pr-mono); font-size: 15px; font-weight: 700;
+  color: var(--pr-teal); min-width: 26px; text-align: center;
+}
+
+/* ── Sidebar panels ──────────────────────────────────────────────────── */
+.pr-sidebar { display: flex; flex-direction: column; gap: 10px; contain: layout; }
+
+.pr-panel-title {
+  font-family: var(--pr-display);
+  font-size: 11px; font-weight: 700;
+  color: var(--pr-faint);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 10px 12px 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--pr-border);
+}
+.pr-panel-count {
+  font-family: var(--pr-mono); font-size: 10px; color: var(--pr-faint);
+}
+
+/* Queue items */
+.pr-q-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.15s;
+}
+.pr-q-item:hover { background: var(--pr-surface); }
+.pr-q-item.now { border-left: 2px solid var(--pr-teal); padding-left: 10px; }
+.pr-q-num {
+  font-family: var(--pr-mono); font-size: 10px;
+  color: var(--pr-faint); width: 14px; flex-shrink: 0; text-align: center;
+}
+.pr-q-item.now .pr-q-num { color: var(--pr-teal); }
+.pr-q-info { flex: 1; min-width: 0; }
+.pr-q-track {
+  font-size: 11px; font-weight: 600;
+  color: var(--pr-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pr-q-item.now .pr-q-track { color: var(--pr-teal); }
+.pr-q-singer { font-size: 10px; color: var(--pr-dim); font-family: var(--pr-mono); }
+
+/* Next up section */
+.pr-next-inner { padding: 10px 12px; }
+.pr-next-label {
+  font-family: var(--pr-mono); font-size: 9px; color: var(--pr-faint);
+  letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px;
+}
+.pr-next-track {
+  font-family: var(--pr-display); font-size: 13px; font-weight: 600;
+  color: var(--pr-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pr-next-singer { font-size: 11px; color: var(--pr-teal); font-family: var(--pr-mono); margin-top: 2px; }
+
+/* Singer pill */
+.pr-singer-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px 3px 4px;
+  border-radius: 20px;
+  background: rgba(124,58,237,0.12);
+  border: 1px solid rgba(124,58,237,0.3);
+}
+.pr-av {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--pr-grad);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff;
+  flex-shrink: 0;
+}
+.pr-singer-name { font-size: 12px; color: var(--pr-text); font-weight: 500; }
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+@media screen and (max-width: 700px) {
+  .pr-grid {
+    grid-template-columns: 1fr;
+  }
+  .pr-sidebar { display: none; } /* sidebar hidden on mobile — queue on its own page */
+  .pr-pitch-graph { height: 72px; }
+}
+
+/* ── Existing control-box hide override ─────────────────────────────── */
+/* The old control-box hidden logic still works via JS, but we style it */
+.has-background-black-bis.box.control-box {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  max-width: 100% !important;
+}
+
+/* ── Icon color utilities ────────────────────────────────────────────── */
+.pr-icon-teal {
+  color: var(--pr-teal) !important;
+  text-shadow: 0 0 8px rgba(0,210,255,0.5);
+}
+.pr-icon-purple {
+  color: var(--pr-purple) !important;
+  text-shadow: 0 0 8px rgba(124,58,237,0.5);
+}
+/* Gradient icon: uses background-clip trick */
+.pr-icon-grad {
+  background: var(--pr-grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 6px rgba(124,58,237,0.4));
+}
+/* Control button icons — styled teal by default */
+.pr-ctrl-btn .pr-icon-ctrl,
+.pr-ctrl-btn .icon.pr-icon-ctrl {
+  color: var(--pr-teal);
+  font-size: 1.1em;
+  line-height: 1;
+  display: inline-block;
+}
+.pr-ctrl-btn.primary .pr-icon-ctrl,
+.pr-ctrl-btn.primary .icon.pr-icon-ctrl {
+  color: #fff;
+}
+.pr-ctrl-btn.danger .pr-icon-ctrl,
+.pr-ctrl-btn.danger .icon.pr-icon-ctrl {
+  color: var(--pr-pink);
+}
+/* Key apply checkmark — teal */
+.pr-key-btn .pr-icon-ctrl {
+  color: var(--pr-teal);
+  font-size: 0.9em;
+}
+/* Now-playing icon cell */
+.pr-np-icon .icon {
+  font-size: 1.6rem;
+}
+
+/* ── Video Panel ─────────────────────────────────────────────────────── */
+.pr-video-panel {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(124,58,237,0.35);
+  box-shadow:
+    0 0 0 1px rgba(0,210,255,0.1),
+    0 0 40px rgba(124,58,237,0.25),
+    0 0 80px rgba(0,210,255,0.1),
+    0 8px 40px rgba(0,0,0,0.7);
+  margin-bottom: 10px;
+}
+.pr-video-panel video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  border-radius: 10px;
+}
+/* SubtitlesOctopus canvas — position above video */
+.pr-video-panel canvas {
+  position: absolute !important;
+  top: 0; left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── Adjusters visible when active ──────────────────────────────────── */
+.pr-adjusters {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pr-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}

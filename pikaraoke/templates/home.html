@@ -1,289 +1,524 @@
-{% extends 'base.html' %} {% block scripts %}
+{% extends 'base.html' %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='hls-1.6.15.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/subtitles-octopus.js') }}"></script>
 <script>
-	var volume = {{ volume|default(0.85) }};
+  var volume = {{ volume|default(0.85) }};
+  var prHlsInstance = null;
+  var prOctopusInstance = null;
+  var prCurrentVideoUrl = null;
 
-	// Ensure global socket exists
-	if (typeof window.socket === 'undefined') {
-		window.socket = io();
-	}
+  if (typeof window.socket === 'undefined') {
+    window.socket = io();
+  }
 
-	function loadNowPlaying() {
-		console.log("Loading now playing data");
-		$.get('{{ url_for("now_playing.now_playing") }}', function (data) {
-			handleNowPlaying(JSON.parse(data));
-		});
-	}
+  function loadNowPlaying() {
+    $.get('{{ url_for("now_playing.now_playing") }}', function(data) {
+      handleNowPlaying(JSON.parse(data));
+    });
+  }
 
-	function handleNowPlaying(np) {
-		console.log(np);
-		if (np.now_playing) {
-			var nowPlayingHtml = `<p style="margin-bottom: 5px">${np.now_playing}</p>
-          <p class="has-text-success" style="margin-bottom: 5px"><i class="icon icon-mic-1" title="Current singer"></i>${np.now_playing_user}</p>`;
+  function loadVideoPlayer(np) {
+    var video = document.getElementById('pr-video');
+    if (!video) return;
 
-			if (np.now_playing_transpose != 0) {
-				nowPlayingHtml +=
-					// {# MSG: Label for display of how many semitones the song has been shifted. #}
-					"<span class='is-size-6 has-text-success'><b>Key</b>: " +
-					getSemitonesLabel(np.now_playing_transpose) +
-					"<span>";
-			}
+    // Subtitle setup
+    if (prOctopusInstance) {
+      try { prOctopusInstance.dispose(); } catch(e) {}
+      prOctopusInstance = null;
+    }
+    if (np.now_playing_subtitle_url) {
+      try {
+        prOctopusInstance = new SubtitlesOctopus({
+          video: video,
+          subUrl: np.now_playing_subtitle_url,
+          fonts: ['/static/fonts/Arial.ttf', '/static/fonts/DroidSansFallback.ttf'],
+          workerUrl: '/static/js/subtitles-octopus-worker.js'
+        });
+      } catch(e) { console.error('SubtitlesOctopus error:', e); }
+    }
 
-			$("#now-playing").html(nowPlayingHtml);
-			$(".control-box").show();
-		} else {
-			// {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
-			$("#now-playing").html("{{ _('Nothing is playing right now.') }}");
-			$(".control-box").hide();
-		}
+    // Video source setup
+    if (!np.now_playing_url || np.now_playing_url === prCurrentVideoUrl) return;
+    prCurrentVideoUrl = np.now_playing_url;
+    var streamUrl = np.now_playing_url;
 
-		if (np.up_next) {
-			$("#up-next").html(`<p style="margin-bottom: 5px">${np.up_next}</p>
-          <p class="has-text-success">
-            {# MSG: Title text for the icon marking the next person to sing. #}
-            <i class="icon icon-mic-1" title="{{ _('Next singer') }}"></i>${np.next_user}</p>`);
-		} else {
-			// {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
-			$("#up-next").html("{{ _('No song is queued.') }}");
-		}
+    if (prHlsInstance) { prHlsInstance.destroy(); prHlsInstance = null; }
+    video.pause();
+    video.src = '';
+    video.load();
 
-		if (np.now_playing_transpose != 0) {
-			$("#transpose").val(np.now_playing_transpose);
-			$("#semitones-label").html(getSemitonesLabel(np.now_playing_transpose));
-		} else {
-			$("#transpose").val(0);
-			$("#semitones-label").html(getSemitonesLabel(np.now_playing_transpose));
-		}
+    var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    var useNativeHLS = isSafari && video.canPlayType('application/vnd.apple.mpegurl');
 
-		// set the volume slider to the current volume
-		if (np.volume != volume) {
-			volume = np.volume;
-			console.log("setting volume to " + volume);
-			$("#volume-slider").val(volume);
-		}
+    if (streamUrl.endsWith('.m3u8') && !useNativeHLS && typeof Hls !== 'undefined' && Hls.isSupported()) {
+      prHlsInstance = new Hls({
+        startPosition: -1,
+        enableWorker: true,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60
+      });
+      prHlsInstance.on(Hls.Events.ERROR, function(event, data) {
+        if (data.fatal) {
+          console.error('HLS fatal error:', data.type, data.details);
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            prHlsInstance.startLoad();
+          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            prHlsInstance.recoverMediaError();
+          }
+        }
+      });
+      prHlsInstance.attachMedia(video);
+      prHlsInstance.loadSource(streamUrl);
+      prHlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+        video.volume = volume;
+        video.play().catch(function(e) { console.warn('Autoplay blocked, waiting for user interaction'); });
+      });
+    } else {
+      // Native HLS (Safari) or progressive MP4
+      video.src = streamUrl;
+      video.load();
+      video.volume = volume;
+      video.play().catch(function(e) { console.warn('Play error:', e); });
+    }
 
-		if (np.is_paused) {
-			$("#pause-resume").removeClass("icon-pause");
-			$("#pause-resume").addClass("icon-play");
-			$(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.png') }}");
-		} else {
-			$("#pause-resume").removeClass("icon-play");
-			$("#pause-resume").addClass("icon-pause");
-			$(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.gif') }}");
-		}
-	}
+    $('#pr-video-panel').show();
+  }
 
-	$(function () {
-		$(".control-box").hide();
+  function handleNowPlaying(np) {
+    if (np.now_playing) {
+      // Title + singer
+      $('#pr-np-title').text(np.now_playing);
+      $('#pr-np-singer').html('<i class="icon icon-mic-1"></i> ' + (np.now_playing_user || ''));
 
-		var slider = document.getElementById("transpose");
-		var output = document.getElementById("semitones-label");
-		if (slider && output) {
-			output.innerHTML = getSemitonesLabel(slider.value);
-			// Update the current slider value (each time you drag the slider handle)
-			slider.oninput = function () {
-				output.innerHTML = getSemitonesLabel(slider.value);
-			};
-		}
+      // Key badge
+      if (np.now_playing_transpose != 0) {
+        $('#pr-key-badge').text(getSemitonesLabel(np.now_playing_transpose)).show();
+      } else {
+        $('#pr-key-badge').hide();
+      }
 
-		$("#volume-slider").on(
-			"input",
-			debounce(function (event) {
-				const value = this.value;
-				$.get("/volume/" + value);
-			}, 500)
-		);
+      // Show live indicator and controls
+      $('.pr-np-live').show();
+      $('.pr-controls-area').show();
+      $('.pr-np-idle').hide();
 
-		$("#submit-transpose").click(function () {
-			var value;
-			if (slider) {
-				value = slider.value;
-			} else {
-				value = 0;
-			}
-			r = confirm("Transpose this song: " + getSemitonesLabel(value) + "?");
-			if (r) {
-				$.get("/transpose/" + value);
-			}
-			slider.value = 0;
-			output.innerHTML = getSemitonesLabel(slider.value);
-		});
+      // Load video player
+      loadVideoPlayer(np);
+    } else {
+      $('#pr-np-title').text('Nothing playing');
+      $('#pr-np-singer').text('Queue a song to get started');
+      $('.pr-np-live').hide();
+      $('.pr-controls-area').hide();
+      $('.pr-np-idle').show();
+      $('#pr-key-badge').hide();
+      $('#pr-video-panel').hide();
+      prCurrentVideoUrl = null;
+      if (prHlsInstance) { prHlsInstance.destroy(); prHlsInstance = null; }
+    }
 
-		$("#pause-resume").click(function () {
-			$.get("/pause");
-			togglePausePlayButton();
-		});
+    // Up next
+    if (np.up_next) {
+      $('#pr-next-track').text(np.up_next);
+      $('#pr-next-singer').html('<i class="icon icon-mic-1"></i> ' + (np.next_user || ''));
+      $('.pr-next-block').show();
+    } else {
+      $('.pr-next-block').hide();
+    }
 
-		$("#vol-up").click(function () {
-			$.get("/vol_up");
-		});
+    // Transpose slider sync
+    if ($('#transpose').length) {
+      $('#transpose').val(np.now_playing_transpose || 0);
+      $('#semitones-label').text(getSemitonesLabel(np.now_playing_transpose || 0));
+      $('#pr-key-val').text(np.now_playing_transpose || 0);
+    }
 
-		$("#vol-down").click(function () {
-			$.get("/vol_down");
-		});
+    // Volume sync
+    if (np.volume != volume) {
+      volume = np.volume;
+      $('#volume-slider').val(volume);
+      var v = document.getElementById('pr-video');
+      if (v) v.volume = volume;
+    }
 
-		$("#restart").click(function () {
-			r = confirm("Are you sure you want to restart this track?");
-			if (r) {
-				$.get("/restart");
-			}
-		});
+    // Pause/play icon
+    if (np.is_paused) {
+      $('#pause-resume').removeClass('icon-pause').addClass('icon-play');
+      $('#pr-pause-icon').attr('class', 'icon icon-play');
+      $('.playing_gif').attr('src', "{{ url_for('static', filename='images/now-playing.png') }}");
+    } else {
+      $('#pause-resume').removeClass('icon-play').addClass('icon-pause');
+      $('#pr-pause-icon').attr('class', 'icon icon-pause');
+      $('.playing_gif').attr('src', "{{ url_for('static', filename='images/now-playing.gif') }}");
+    }
+  }
 
-		$("#skip").click(function () {
-			r = confirm(
-				// {# MSG: Confirmation message when clicking a button to skip a track. #}
-				`{{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") }}`
-			);
-			if (r) {
-				$.get("/skip");
-			}
-		});
+  function setVocalMode(mode) {
+    $.get('/vocal_mode/' + mode, function(data) {
+      $('.pr-seg-opt').removeClass('active');
+      $('#pr-vocal-' + data.vocal_mode).addClass('active');
+      ['mixed', 'nonvocal', 'vocal'].forEach(function(m) {
+        $('#vocal-' + m).removeClass('is-primary');
+      });
+      $('#vocal-' + data.vocal_mode).addClass('is-primary');
+    });
+  }
 
-		$("#semitones-info").click(function () {
-			showNotification(
-				"A semitone is also known as a half-step. It is the smallest interval used in classical Western music, equal to a twelfth of an octave or half a tone.",
-				"is-info",
-				10000
-			);
-		});
+  function togglePausePlayButton() {
+    if ($('#pause-resume').hasClass('icon-pause')) {
+      $('#pause-resume').removeClass('icon-pause').addClass('icon-play');
+      $('#pr-pause-icon').attr('class', 'icon icon-play');
+    } else {
+      $('#pause-resume').removeClass('icon-play').addClass('icon-pause');
+      $('#pr-pause-icon').attr('class', 'icon icon-pause');
+    }
+  }
 
-		function togglePausePlayButton() {
-			if ($("#pause-resume").hasClass("icon-pause")) {
-				$("#pause-resume").removeClass("icon-pause");
-				$("#pause-resume").addClass("icon-play");
-			} else {
-				$("#pause-resume").removeClass("icon-play");
-				$("#pause-resume").addClass("icon-pause");
-			}
-		}
+  $(function() {
+    // Hide controls and video until song plays
+    $('.pr-controls-area').hide();
+    $('.pr-next-block').hide();
+    $('#pr-key-badge').hide();
+    $('#pr-video-panel').hide();
 
-		function setVocalMode(mode) {
-			$.get("/vocal_mode/" + mode, function(data) {
-				["mixed", "nonvocal", "vocal"].forEach(function(m) {
-					$("#vocal-" + m).removeClass("is-primary");
-				});
-				$("#vocal-" + data.vocal_mode).addClass("is-primary");
-			});
-		}
+    // Volume slider
+    $('#volume-slider').on('input', debounce(function() {
+      $.get('/volume/' + this.value);
+      var v = document.getElementById('pr-video');
+      if (v) v.volume = parseFloat(this.value);
+    }, 500));
 
-		//for first time load of splash screen
-		loadNowPlaying();
-		//for pushed updates to now playing state
-		window.socket.on("now_playing", (np) => handleNowPlaying(np));
+    // Transpose slider display update
+    var slider = document.getElementById('transpose');
+    var output = document.getElementById('semitones-label');
+    if (slider && output) {
+      output.innerHTML = getSemitonesLabel(slider.value);
+      slider.oninput = function() {
+        output.innerHTML = getSemitonesLabel(slider.value);
+        $('#pr-key-val').text(slider.value > 0 ? '+' + slider.value : slider.value);
+      };
+    }
 
-		document.addEventListener("visibilitychange", function () {
-			console.log("on visibility change");
+    // Transpose +/- buttons
+    $('#pr-key-minus').click(function() {
+      if (slider) {
+        slider.value = Math.max(-12, parseInt(slider.value) - 1);
+        slider.oninput();
+      }
+    });
+    $('#pr-key-plus').click(function() {
+      if (slider) {
+        slider.value = Math.min(12, parseInt(slider.value) + 1);
+        slider.oninput();
+      }
+    });
+    $('#pr-key-apply').click(function() {
+      var value = slider ? slider.value : 0;
+      if (value != 0) {
+        var r = confirm('Transpose: ' + getSemitonesLabel(value) + '?');
+        if (r) { $.get('/transpose/' + value); }
+      }
+    });
 
-			if (document.visibilityState === "visible") {
-				loadNowPlaying();
-				console.log(window.socket);
-				if (!window.socket.connected) {
-					console.log("Reconnecting socket...");
-					window.socket = io();
-					window.socket.on("now_playing", (np) => handleNowPlaying(np));
-				}
-			}
-		});
-	});
+    // Pause/play
+    $('#pause-resume, #pr-pause-btn').click(function() {
+      $.get('/pause');
+      togglePausePlayButton();
+    });
+
+    // Volume up/down
+    $('#vol-up, #pr-vol-up').click(function() { $.get('/vol_up'); });
+    $('#vol-down, #pr-vol-down').click(function() { $.get('/vol_down'); });
+
+    // Restart
+    $('#restart, #pr-restart-btn').click(function() {
+      if (confirm('Restart this track?')) { $.get('/restart'); }
+    });
+
+    // Skip
+    $('#skip, #pr-skip-btn').click(function() {
+      if (confirm("{{ _('Are you sure you want to skip this track? If you didn\'t add this song, ask permission first!') }}")) {
+        $.get('/skip');
+      }
+    });
+
+    // Vocal mode
+    $('#pr-vocal-mixed').click(function() { setVocalMode('mixed'); });
+    $('#pr-vocal-nonvocal').click(function() { setVocalMode('nonvocal'); });
+    $('#pr-vocal-vocal').click(function() { setVocalMode('vocal'); });
+
+    // Set initial active vocal mode
+    $('#pr-vocal-{{ vocal_mode }}').addClass('active');
+
+    // Initial load + socket
+    loadNowPlaying();
+    window.socket.on('now_playing', function(np) { handleNowPlaying(np); });
+
+    // Reconnect on visibility change
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') {
+        loadNowPlaying();
+        if (!window.socket.connected) {
+          window.socket = io();
+          window.socket.on('now_playing', function(np) { handleNowPlaying(np); });
+        }
+      }
+    });
+  });
 </script>
-{% endblock %} {% block header %}
-<h1>
-	{% block title %} {# MSG: Header showing the currently playing song. #} {% trans %}Now Playing{% endtrans %}
-	<img
-		style="display: none"
-		class="playing_gif control-box"
-		width="40"
-		src="{{  url_for('static', filename='images/now-playing.png') }}"
-	/>{% endblock %}
-</h1>
-{% endblock %} {% block content %}
+{% endblock %}
 
-<p class="is-size-4 has-text-warning" id="now-playing">&nbsp;</p>
+{% block header %}{% endblock %}
 
-<hr />
-<h3>{# MSG: Title for the section displaying the next song to be played. #} {% trans %}Next Song{% endtrans %}</h3>
-<p id="up-next" class="has-text-warning"></p>
-<hr />
+{% block content %}
+<div class="pr-home-wrap">
+  <div class="pr-grid">
 
-{% if admin %}
-<div class="has-background-black-bis box control-box" style="max-width: 500px; display: none">
-	{# MSG: Title of the box with controls such as pause and skip. #}
-	<h4>{% trans %}Player Control{% endtrans %}</h4>
-	<div class="is-size-3" style="display: flex; justify-content: space-between">
-		<div class="is-size-3">
-			{# MSG: Title attribute on the button to restart the current song. #}
-			<a title="{{ _('Restart Song') }}" id="restart"><i class="icon icon-to-start"></i> </a>&nbsp;&nbsp; {# MSG:
-			Title attribute on the button to play or pause the current song. #}
-			<a title="{{ _('Play/Pause') }}"><i id="pause-resume" class="icon icon-pause"></i> </a>&nbsp;&nbsp; {# MSG:
-			Title attribute on the button to skip to the next song. #}
-			<a title="{{ _('Stop Current Song') }}" id="skip"><i class="icon icon-to-end"></i> </a>
-		</div>
-		<div class="is-size-3" style="display: flex; align-items: center">
-			<i id="vol-down" class="icon icon-volume-down"></i>
-			<input
-				type="range"
-				min="0"
-				max="1"
-				value="{{ volume|default(0.85) }}"
-				step="0.025"
-				id="volume-slider"
-				style="margin: 0 8px 0px 5px; width: 100px"
-			/>
-			<i id="vol-up" class="icon icon-volume-up"></i>
-		</div>
-	</div>
-	<hr />
+    <!-- ══ LEFT COLUMN ══ -->
+    <div class="pr-main-col">
 
-	{% if vocal_splitter_enabled %}
-	<hr />
-	<div>
-		<h4>{% trans %}Vocal Mode{% endtrans %}</h4>
-		<div class="buttons has-addons" style="margin-top: 8px">
-			<button id="vocal-mixed" class="button is-rounded is-small {% if vocal_mode == 'mixed' %}is-primary{% endif %}" onclick="setVocalMode('mixed')">
-				{% trans %}Mixed{% endtrans %}
-			</button>
-			<button id="vocal-nonvocal" class="button is-rounded is-small {% if vocal_mode == 'nonvocal' %}is-primary{% endif %}" onclick="setVocalMode('nonvocal')">
-				{% trans %}Instrumental{% endtrans %}
-			</button>
-			<button id="vocal-vocal" class="button is-rounded is-small {% if vocal_mode == 'vocal' %}is-primary{% endif %}" onclick="setVocalMode('vocal')">
-				{% trans %}Vocals Only{% endtrans %}
-			</button>
-		</div>
-		<p class="is-size-7 has-text-grey" style="margin-top: 4px">{% trans %}Takes effect on the next song.{% endtrans %}</p>
-	</div>
-	{% endif %}
+      <!-- Pitch Graph (PROTOTYPE) -->
+      <div class="pr-pitch-panel">
+        <div class="pr-pitch-header">
+          <div class="pr-pitch-title">
+            <i class="icon icon-music pr-icon-teal"></i> Pitch Graph
+            <span class="pr-proto-badge">PROTOTYPE</span>
+          </div>
+          <div class="pr-pitch-score-row">
+            <span>ACCURACY</span> 72%
+            <span>SCORE</span> 8,340
+          </div>
+        </div>
 
-	{% if is_transpose_enabled %}
-	<div class="is-flex" style="justify-content: space-between">
-		<div>
-			{# MSG: Title of a control to change the key/pitch of the playing song. #}
-			<h4>{% trans %}Change Key{% endtrans %}</h4>
-		</div>
-		<div class="is-flex">
-			<h4 id="semitones-label"></h4>
-			<a id="semitones-info"> <i class="icon icon-info-circled-1" title="Info"></i></a>
-		</div>
-	</div>
-	<div style="width: 100%">
-		<div class="is-flex">
-			<input
-				type="range"
-				min="-12"
-				max="12"
-				value="0"
-				width="300px"
-				class="transpose-slider"
-				id="transpose"
-				style="width: 100%"
-			/>
-			<button id="submit-transpose" class="button is-rounded is-small" style="margin-left: 10px">
-				{# MSG: Label on the button to confirm the change in key/pitch of the playing song. #} {% trans %}Change{%
-				endtrans %}
-			</button>
-		</div>
-	</div>
-	{% endif %}
+        <div class="pr-pitch-graph">
+          <div class="pr-yaxis">
+            <span class="pr-ynote" style="top:0px">B5</span>
+            <span class="pr-ynote" style="top:36px">B4</span>
+            <span class="pr-ynote" style="top:72px">B3</span>
+            <span class="pr-ynote" style="top:108px">B2</span>
+          </div>
+          <div class="pr-playhead"></div>
+          <div class="pr-note hit"          style="top:33px;left:2%;width:7%"></div>
+          <div class="pr-note hit"          style="top:27px;left:12%;width:5%"></div>
+          <div class="pr-note miss"         style="top:21px;left:21%;width:4%"></div>
+          <div class="pr-note hit"          style="top:33px;left:27%;width:6%"></div>
+          <div class="pr-note current-note" style="top:27px;left:31%;width:7%"></div>
+          <div class="pr-note"             style="top:21px;left:42%;width:7%"></div>
+          <div class="pr-note"             style="top:12px;left:53%;width:5%"></div>
+          <div class="pr-note"             style="top:51px;left:62%;width:6%"></div>
+          <div class="pr-note"             style="top:42px;left:71%;width:5%"></div>
+          <div class="pr-note"             style="top:27px;left:79%;width:6%"></div>
+          <div class="pr-note"             style="top:63px;left:88%;width:4%"></div>
+          <div class="pr-note"             style="top:21px;left:95%;width:4%"></div>
+          <svg class="pr-pitch-svg" viewBox="0 0 700 108" preserveAspectRatio="none">
+            <polyline
+              points="14,34 70,34 84,28 119,22 140,34 189,34 217,28"
+              fill="none" stroke="rgba(0,210,255,0.9)" stroke-width="1.5"
+              stroke-linecap="round" stroke-linejoin="round"
+            />
+            <circle cx="245" cy="28" r="3.5" fill="#00d2ff" filter="url(#pr-glow)"/>
+            <defs>
+              <filter id="pr-glow" x="-80%" y="-80%" width="260%" height="260%">
+                <feGaussianBlur stdDeviation="2.5" result="b"/>
+                <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+          </svg>
+        </div>
+
+        <div class="pr-pitch-footer">
+          <div class="pr-score-labels">
+            <span class="lbl-miss">● Miss</span>
+            <span class="lbl-hit">● Good</span>
+            <span class="lbl-perf">● Perfect</span>
+          </div>
+          <div class="pr-score-track">
+            <div class="pr-score-fill" style="width:72%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Video Player (shown when song is playing) -->
+      <div id="pr-video-panel" class="pr-video-panel" style="display:none">
+        <video id="pr-video"
+          playsinline
+          webkit-playsinline
+          disableRemotePlayback
+          poster="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+          style="width:100%;height:100%;object-fit:contain;display:block;border-radius:10px">
+        </video>
+      </div>
+
+      <!-- Now Playing card -->
+      <div class="pr-card pr-nowplaying">
+        <div class="pr-np-inner">
+          <div class="pr-np-icon" id="pr-np-icon">
+            <i class="icon icon-music pr-icon-grad"></i>
+          </div>
+          <div class="pr-np-info">
+            <div class="pr-np-title" id="pr-np-title">Nothing playing</div>
+            <div class="pr-np-singer" id="pr-np-singer">Queue a song to get started</div>
+          </div>
+          <span id="pr-key-badge" class="pr-np-key-badge" style="display:none"></span>
+          <span class="pr-np-live" style="display:none">
+            <span class="pr-live-dot"></span> LIVE
+          </span>
+        </div>
+
+        <div class="pr-progress-wrap">
+          <div class="pr-progress-track">
+            <div class="pr-progress-fill" id="pr-progress-fill"></div>
+          </div>
+        </div>
+
+        <!-- Playback controls -->
+        <div class="pr-controls pr-controls-area">
+          <a class="pr-ctrl-btn" id="pr-restart-btn" title="{{ _('Restart Song') }}">
+            <i class="icon icon-to-start pr-icon-ctrl"></i>
+          </a>
+          <a class="pr-ctrl-btn primary" id="pr-pause-btn" title="{{ _('Play/Pause') }}">
+            <i class="icon icon-pause pr-icon-ctrl" id="pr-pause-icon"></i>
+          </a>
+          <a class="pr-ctrl-btn danger" id="pr-skip-btn" title="{{ _('Skip Song') }}">
+            <i class="icon icon-to-end pr-icon-ctrl"></i>
+          </a>
+          <div class="pr-vol-section">
+            <a class="pr-ctrl-btn" id="pr-vol-down" style="width:30px;height:30px;font-size:14px" title="{{ _('Volume Down') }}">
+              <i class="icon icon-volume-down pr-icon-ctrl"></i>
+            </a>
+            <input type="range" min="0" max="1" value="{{ volume|default(0.85) }}" step="0.025"
+              id="volume-slider" style="width:80px;accent-color:#00d2ff">
+            <a class="pr-ctrl-btn" id="pr-vol-up" style="width:30px;height:30px;font-size:14px" title="{{ _('Volume Up') }}">
+              <i class="icon icon-volume-up pr-icon-ctrl"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Adjusters: vocal mode + key -->
+        <div class="pr-adjusters pr-controls-area">
+          <div>
+            <span class="pr-adj-label">VOCAL MODE</span>
+            {% if vocal_splitter_enabled %}
+            <div class="pr-seg">
+              <button id="pr-vocal-mixed"    class="pr-seg-opt {% if vocal_mode == 'mixed' %}active{% endif %}">Mixed</button>
+              <button id="pr-vocal-nonvocal" class="pr-seg-opt {% if vocal_mode == 'nonvocal' %}active{% endif %}">Instrumental</button>
+              <button id="pr-vocal-vocal"    class="pr-seg-opt {% if vocal_mode == 'vocal' %}active{% endif %}">Vocals Only</button>
+            </div>
+            {% else %}
+            <div style="font-size:11px;color:var(--pr-faint)">Vocal splitting not enabled</div>
+            {% endif %}
+          </div>
+          {% if is_transpose_enabled %}
+          <div class="pr-key-block">
+            <span class="pr-adj-label">KEY</span>
+            <div class="pr-key-row">
+              <button class="pr-key-btn" id="pr-key-minus">−</button>
+              <span class="pr-key-val" id="pr-key-val">0</span>
+              <button class="pr-key-btn" id="pr-key-plus">+</button>
+              <button class="pr-key-btn" id="pr-key-apply" style="font-size:10px;width:auto;padding:0 8px" title="Apply transpose">
+                <i class="icon icon-ok pr-icon-ctrl"></i>
+              </button>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Hidden original controls for JS compat -->
+        <div style="display:none">
+          <a id="restart"></a>
+          <a id="skip"></a>
+          <i id="pause-resume" class="icon-pause"></i>
+          <i id="vol-up"></i>
+          <i id="vol-down"></i>
+          <input type="range" id="transpose" min="-12" max="12" value="0">
+          <span id="semitones-label"></span>
+          <button id="submit-transpose"></button>
+          {% if vocal_splitter_enabled %}
+          <button id="vocal-mixed" class="{% if vocal_mode == 'mixed' %}is-primary{% endif %}"></button>
+          <button id="vocal-nonvocal" class="{% if vocal_mode == 'nonvocal' %}is-primary{% endif %}"></button>
+          <button id="vocal-vocal" class="{% if vocal_mode == 'vocal' %}is-primary{% endif %}"></button>
+          {% endif %}
+        </div>
+      </div>
+
+    </div><!-- /left col -->
+
+    <!-- ══ RIGHT SIDEBAR ══ -->
+    <div class="pr-sidebar">
+
+      <!-- Next Up -->
+      <div class="pr-card pr-next-block">
+        <div class="pr-panel-title">Up Next</div>
+        <div class="pr-next-inner">
+          <div class="pr-next-label">Next song</div>
+          <div class="pr-next-track" id="pr-next-track">—</div>
+          <div class="pr-next-singer" id="pr-next-singer"></div>
+        </div>
+      </div>
+
+      <!-- Quick queue -->
+      <div class="pr-card">
+        <div class="pr-panel-title">
+          Queue
+          <span class="pr-panel-count">
+            <a href="{{ url_for('queue.queue') }}" style="color:var(--pr-teal);text-decoration:none;font-size:10px">View all →</a>
+          </span>
+        </div>
+        <div id="pr-queue-list">
+          <div class="pr-q-item now">
+            <span class="pr-q-num"><i class="icon icon-play pr-icon-teal" style="font-size:10px"></i></span>
+            <div class="pr-q-info">
+              <div class="pr-q-track" id="pr-q-current">—</div>
+              <div class="pr-q-singer" id="pr-q-current-singer"></div>
+            </div>
+          </div>
+          <div class="pr-q-item">
+            <span class="pr-q-num">2</span>
+            <div class="pr-q-info">
+              <div class="pr-q-track" id="pr-q-next">—</div>
+              <div class="pr-q-singer" id="pr-q-next-singer"></div>
+            </div>
+          </div>
+        </div>
+        <div style="padding:8px 12px 10px;border-top:1px solid var(--pr-border)">
+          <a href="{{ url_for('search.search') }}"
+             style="display:block;text-align:center;padding:7px;border-radius:9px;background:var(--pr-grad);color:#fff;font-size:12px;font-weight:700;text-decoration:none;box-shadow:var(--pr-glow-p)">
+            <i class="icon icon-plus"></i> Add Song
+          </a>
+        </div>
+      </div>
+
+      <!-- QR code -->
+      {% if qr_code_url %}
+      <div class="pr-card">
+        <div class="pr-panel-title">Join from Phone</div>
+        <div style="text-align:center;padding:10px">
+          <img src="{{ qr_code_url }}" alt="QR Code" style="width:100%;max-width:140px;border-radius:8px;opacity:0.85">
+          <div style="font-family:var(--pr-mono);font-size:10px;color:var(--pr-faint);margin-top:6px">
+            {{ url }}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+    </div><!-- /sidebar -->
+  </div><!-- /pr-grid -->
 </div>
-{% endif %}
 
-<div></div>
+<!-- Sync sidebar with now_playing socket data -->
+<script>
+$(function() {
+  window.socket.on('now_playing', function(np) {
+    if (np.now_playing) {
+      $('#pr-q-current').text(np.now_playing);
+      $('#pr-q-current-singer').text(np.now_playing_user || '');
+    }
+    if (np.up_next) {
+      $('#pr-q-next').text(np.up_next);
+      $('#pr-q-next-singer').text(np.next_user || '');
+    }
+  });
+});
+</script>
 {% endblock %}

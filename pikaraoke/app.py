@@ -50,6 +50,7 @@ from pikaraoke.routes.vocal import vocal_bp
 _ = flask_babel.gettext
 
 from gevent.pywsgi import WSGIServer
+from geventwebsocket.handler import WebSocketHandler
 
 args = parse_pikaraoke_args()
 socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url)
@@ -238,7 +239,7 @@ def main() -> None:
 
     spawn(upgrade_youtubedl)
 
-    server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
+    server = WSGIServer(("0.0.0.0", int(args.port)), app, handler_class=WebSocketHandler, log=None, error_log=logging.getLogger())
     server.start()
 
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling
