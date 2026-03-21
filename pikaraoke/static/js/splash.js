@@ -171,7 +171,7 @@ const playBGVideo = async (play) => {
     if (!autoplayConfirmed) return;
 
     if (isMediaPlaying(bgVideo)) return;
-    $("#bg-video").attr("src", "/stream/bg_video");
+    $("#bg-video").attr("src", (window.SCRIPT_ROOT || '') + "/stream/bg_video");
     if (bgVideo.readyState <= 2) await bgVideo.load();
     bgVideo.play().catch(() => console.log("Autoplay blocked (video)"));
     bgVideoContainer.fadeIn(2000);
@@ -289,7 +289,9 @@ const handleNowPlayingUpdate = (np) => {
   const video = getVideoPlayer();
 
   // Setup ASS subtitle file if found
-  const subtitleUrl = np.now_playing_subtitle_url;
+  const subtitleUrl = np.now_playing_subtitle_url
+    ? (window.SCRIPT_ROOT || '') + np.now_playing_subtitle_url
+    : null;
   if (octopusInstance) {
     octopusInstance.dispose();
     octopusInstance = null;
@@ -317,7 +319,8 @@ const handleNowPlayingUpdate = (np) => {
 
   if (np.now_playing_url && np.now_playing_url !== currentVideoUrl) {
     currentVideoUrl = np.now_playing_url;
-    const streamUrl = np.now_playing_url;
+    const root = window.SCRIPT_ROOT || '';
+    const streamUrl = root + np.now_playing_url;
     $("#video-source").attr("src", "");
     video.load();
     $("#video-source").attr("src", streamUrl);
