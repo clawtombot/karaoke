@@ -321,23 +321,30 @@ const handleNowPlayingUpdate = (np) => {
     currentVideoUrl = np.now_playing_url;
     const root = window.SCRIPT_ROOT || '';
     const streamUrl = root + np.now_playing_url;
-    $("#video-source").attr("src", "");
+
+    // Reset previous source
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    video.pause();
+    video.removeAttribute('src');
     video.load();
-    $("#video-source").attr("src", streamUrl);
 
     if (streamUrl.endsWith('.m3u8')) {
       const useNativeHLS = video.canPlayType('application/vnd.apple.mpegurl') && !isChrome && !isEdge && !isMobileSafari;
       if (useNativeHLS) {
         video.src = streamUrl;
+        video.load();
       } else {
-        if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
         hlsInstance = new Hls({ startPosition: 0 });
         hlsInstance.loadSource(streamUrl);
         hlsInstance.attachMedia(video);
+        // Do NOT call video.load() — HLS.js manages the MediaSource
       }
+    } else {
+      // Progressive MP4
+      video.src = streamUrl;
+      video.load();
     }
 
-    video.load();
     if (volume !== np.volume) {
       volume = np.volume;
       video.volume = volume;
