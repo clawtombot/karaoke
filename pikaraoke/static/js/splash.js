@@ -1,4 +1,4 @@
-let socket = io();
+let socket = io({ path: (window.SCRIPT_ROOT || '') + '/socket.io/' });
 let mouseTimer = null;
 let cursorVisible = false;
 let nowPlaying = {};
@@ -372,7 +372,7 @@ const handleNowPlayingUpdate = (np) => {
 }
 
 async function loadNowPlaying() {
-  const data = await $.get("/now_playing");
+  const data = await $.get((window.SCRIPT_ROOT || '') + "/now_playing");
   handleNowPlayingUpdate(JSON.parse(data));
 }
 
@@ -466,7 +466,7 @@ const setupVideoPlayer = () => {
 }
 
 const setupBackgroundMusicPlayer = () => {
-  $.get("/bg_playlist", function (data) {
+  $.get((window.SCRIPT_ROOT || '') + "/bg_playlist", function (data) {
     if (data) bg_playlist = data;
   });
   const bgMusic = getBackgroundMusicPlayer();
@@ -649,7 +649,7 @@ const handleSocketRecovery = () => {
     if (document.visibilityState === 'visible') {
       autoplayConfirmed && loadNowPlaying();
       if (!socket.connected) {
-        socket = io();
+        socket = io({ path: (window.SCRIPT_ROOT || '') + '/socket.io/' });
         setupSocketEvents();
       }
     }

@@ -10,7 +10,7 @@
   var prCurrentVideoUrl = null;
 
   if (typeof window.socket === 'undefined') {
-    window.socket = io();
+    window.socket = io({ path: window.SCRIPT_ROOT + '/socket.io/' });
   }
 
   function loadNowPlaying() {
@@ -260,7 +260,7 @@
       if (document.visibilityState === 'visible') {
         loadNowPlaying();
         if (!window.socket.connected) {
-          window.socket = io();
+          window.socket = io({ path: window.SCRIPT_ROOT + '/socket.io/' });
           window.socket.on('now_playing', function(np) { handleNowPlaying(np); });
         }
       }

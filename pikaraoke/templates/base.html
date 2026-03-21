@@ -22,6 +22,9 @@
   <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}?v=2">
 
   <script>
+    // Reverse-proxy prefix (empty string when running standalone)
+    window.SCRIPT_ROOT = "{{ request.script_root }}";
+
     // Translations for spa-navigation.js (static JS cannot use Jinja2 directly)
     window.i18n = {
       // {# MSG: Prompt to change the username displayed next to queued songs. CURRENT_NAME is replaced with the name #}
@@ -64,7 +67,7 @@
     }
 
     function connectSocket() {
-      socket = io();
+      socket = io({ path: window.SCRIPT_ROOT + '/socket.io/' });
       socket.on('connect', function() {
           console.log('Socket connected');
       });
@@ -113,19 +116,20 @@
 
       // handle highlighting current nav bar location
       var currentPath = window.location.pathname;
-      if (currentPath == "/") {
+      var root = window.SCRIPT_ROOT || '';
+      if (currentPath == root + "/" || currentPath == root) {
         $("#home").addClass("is-active")
       }
-      if (currentPath == "/queue") {
+      if (currentPath == root + "/queue") {
         $("#queue").addClass("is-active")
       }
-      if (currentPath == "/search") {
+      if (currentPath == root + "/search") {
         $("#search").addClass("is-active")
       }
-      if (currentPath == "/browse") {
+      if (currentPath == root + "/browse") {
         $("#browse").addClass("is-active")
       }
-      if (currentPath == "/info") {
+      if (currentPath == root + "/info") {
         $("#info").addClass("is-active")
       }
 

@@ -57,7 +57,24 @@ socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url)
 babel = Babel()
 
 
+class ReverseProxyMiddleware:
+    """Set SCRIPT_NAME from X-Forwarded-Prefix so url_for() includes the proxy prefix."""
+
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        prefix = environ.get("HTTP_X_FORWARDED_PREFIX", "")
+        if prefix:
+            environ["SCRIPT_NAME"] = prefix
+            path_info = environ.get("PATH_INFO", "")
+            if path_info.startswith(prefix):
+                environ["PATH_INFO"] = path_info[len(prefix) :]
+        return self.wsgi_app(environ, start_response)
+
+
 app = Flask(__name__)
+app.wsgi_app = ReverseProxyMiddleware(app.wsgi_app)
 app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"

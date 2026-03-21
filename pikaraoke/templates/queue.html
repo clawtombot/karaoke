@@ -12,7 +12,7 @@
 
   // Ensure global socket exists
   if (typeof window.socket === 'undefined') {
-    window.socket = io();
+    window.socket = io({ path: window.SCRIPT_ROOT + '/socket.io/' });
   }
 
   // Initialize queue state if needed
@@ -505,7 +505,7 @@
 			{% trans %}Add <input id="randomNumberInput" class="input mx-2 p-2" pattern="\d*" maxlength="2" value="3" min="1" max="99" style="width: 42px" /> random songs{% endtrans %}
 	</div>
 	<div>
-		<a class="button is-danger is-outlined confirm-clear" href="/queue/edit?action=clear">
+		<a class="button is-danger is-outlined confirm-clear" href="{{ url_for('queue.queue_edit', action='clear') }}">
 		<i class="icon icon-trash-empty mr-1"></i>{% trans %}Clear all{% endtrans %}</a>
 	</div>
 </div>
