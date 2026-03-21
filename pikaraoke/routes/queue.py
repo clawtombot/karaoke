@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from urllib.parse import unquote
 
 import flask_babel
@@ -179,6 +180,9 @@ def queue_edit(query):
 
 def _do_enqueue(song: str, user: str) -> str:
     k = get_karaoke_instance()
+    # Resolve relative filename to absolute path
+    if not os.path.isabs(song):
+        song = os.path.join(k.download_path, song)
     rc = k.queue_manager.enqueue(song, user)
     broadcast_event("queue_update")
     song_title = k.song_manager.filename_from_path(song)

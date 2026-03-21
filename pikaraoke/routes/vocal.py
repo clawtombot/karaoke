@@ -12,6 +12,14 @@ from pikaraoke.lib.current_app import get_karaoke_instance
 vocal_bp = Blueprint("vocal", __name__)
 
 
+@vocal_bp.route("/stem_debug/<msg>")
+def stem_debug(msg: str):
+    """Debug endpoint for splash stem mixer logging."""
+    import logging
+    logging.info("[STEM-DEBUG] %s", msg)
+    return jsonify({"ok": True})
+
+
 @vocal_bp.route("/stem_toggle/<stem>")
 def stem_toggle(stem: str):
     """Toggle a stem on/off in the mix."""

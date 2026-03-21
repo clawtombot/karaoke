@@ -26,13 +26,11 @@ let isMaster = false;
 let uiScale = null;
 let clockIntervalId = null;
 
-// Stem mixer state
-let stemContext = null;
-let stemGains = {};       // {drums: GainNode, ...}
-let stemMasterGain = null;
+// Stem mixer state (uses plain Audio elements with volume control)
 let stemAudios = {};      // {drums: HTMLAudioElement, ...}
 let stemSyncInterval = null;
 let stemsActive = false;
+let stemMix = {};         // {drums: true, bass: false, ...}
 
 // Browser detection
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -110,31 +108,23 @@ const handleConfirmation = () => {
 // Stem mixer: Web Audio API for live stem toggling
 // ---------------------------------------------------------------------------
 
-const setupStemMixer = (stemUrls, stemMix) => {
+const setupStemMixer = (stemUrls, mix) => {
   teardownStemMixer();
-
-  stemContext = new AudioContext();
-  stemMasterGain = stemContext.createGain();
-  stemMasterGain.gain.value = volume;
-  stemMasterGain.connect(stemContext.destination);
+  stemMix = mix;
+  console.log("Setting up stem mixer with URLs:", Object.keys(stemUrls));
 
   const root = window.SCRIPT_ROOT || '';
   for (const [name, url] of Object.entries(stemUrls)) {
-    const audio = new Audio(root + url);
-    audio.crossOrigin = "anonymous";
+    const encodedUrl = root + url.split('/').map(s => encodeURIComponent(s)).join('/');
+    const audio = new Audio(encodedUrl);
     audio.preload = "auto";
-    const source = stemContext.createMediaElementSource(audio);
-    const gain = stemContext.createGain();
-    gain.gain.value = stemMix[name] ? 1 : 0;
-    source.connect(gain);
-    gain.connect(stemMasterGain);
+    audio.volume = mix[name] ? volume : 0;
+    audio.onerror = () => console.error("Stem audio error:", name, audio.error);
     stemAudios[name] = audio;
-    stemGains[name] = gain;
+    console.log("Stem loaded:", name, encodedUrl);
   }
 
   stemsActive = true;
-
-  // Sync stem audio to video every 500ms
   stemSyncInterval = setInterval(syncStemAudio, 500);
 };
 
@@ -145,26 +135,18 @@ const teardownStemMixer = () => {
   }
   for (const audio of Object.values(stemAudios)) {
     audio.pause();
-    audio.src = "";
+    audio.removeAttribute('src');
+    audio.load();
   }
   stemAudios = {};
-  stemGains = {};
-  if (stemContext && stemContext.state !== 'closed') {
-    stemContext.close().catch(() => {});
-  }
-  stemContext = null;
-  stemMasterGain = null;
+  stemMix = {};
   stemsActive = false;
 };
 
 const playStemAudio = () => {
   if (!stemsActive) return;
-  // Resume AudioContext if suspended (autoplay policy)
-  if (stemContext && stemContext.state === 'suspended') {
-    stemContext.resume();
-  }
   for (const audio of Object.values(stemAudios)) {
-    audio.play().catch(e => console.log("Stem play error:", e));
+    audio.play().catch(e => console.log("Stem play error:", name, e));
   }
 };
 
@@ -186,20 +168,21 @@ const syncStemAudio = () => {
 };
 
 const setStemEnabled = (stem, enabled) => {
-  if (stemGains[stem]) {
-    stemGains[stem].gain.value = enabled ? 1 : 0;
+  if (stemAudios[stem]) {
+    stemAudios[stem].volume = enabled ? volume : 0;
   }
 };
 
 const applyStemMix = (mix) => {
+  stemMix = mix;
   for (const [name, enabled] of Object.entries(mix)) {
     setStemEnabled(name, enabled);
   }
 };
 
 const setStemMasterVolume = (val) => {
-  if (stemMasterGain) {
-    stemMasterGain.gain.value = val;
+  for (const [name, audio] of Object.entries(stemAudios)) {
+    audio.volume = stemMix[name] ? val : 0;
   }
 };
 
@@ -365,8 +348,14 @@ const setupScreensaver = () => {
   }
 }
 
+const stemLog = (msg) => {
+  console.log("[STEM]", msg);
+  fetch((window.SCRIPT_ROOT || '') + '/stem_debug/' + encodeURIComponent(msg)).catch(() => {});
+};
+
 const handleNowPlayingUpdate = (np) => {
   nowPlaying = np;
+  stemLog("now_playing update: playing=" + np.now_playing + " stems=" + np.stems_available + " url=" + np.now_playing_url);
   if (np.now_playing) {
 
     // Handle updating now playing HTML
@@ -457,14 +446,18 @@ const handleNowPlayingUpdate = (np) => {
       volume = np.volume;
     }
 
-    // Stem mixer: if stems are available, mute video and use Web Audio
+    // Start with video audio at full volume — stems will take over once confirmed playing
+    video.muted = false;
+    video.volume = volume;
     if (np.stems_available && np.stem_urls) {
-      video.muted = true;
-      setupStemMixer(np.stem_urls, np.stem_mix || {});
-      setStemMasterVolume(volume);
+      try {
+        setupStemMixer(np.stem_urls, np.stem_mix || {});
+        setStemMasterVolume(volume);
+      } catch (e) {
+        console.error("Stem setup failed:", e);
+        teardownStemMixer();
+      }
     } else {
-      video.muted = false;
-      video.volume = volume;
       teardownStemMixer();
     }
 
@@ -480,15 +473,25 @@ const handleNowPlayingUpdate = (np) => {
 
     video.play().catch(err => {
       console.error('Play failed:', err);
-      // Retry once if it was an autoplay block
       setTimeout(() => video.play(), 1000);
     });
 
-    // Start stem audio once video begins playing
+    // Once video is playing, start stems and crossfade from video audio to stem audio
     if (stemsActive) {
       const startStems = () => {
-        playStemAudio();
-        syncStemAudio();
+        let stemStarted = 0;
+        const totalStems = Object.keys(stemAudios).length;
+        for (const [name, audio] of Object.entries(stemAudios)) {
+          audio.currentTime = video.currentTime;
+          audio.play().then(() => {
+            stemStarted++;
+            // Once all stems are playing, fade video audio to 0
+            if (stemStarted === totalStems) {
+              video.volume = 0;
+              console.log("All stems playing, video audio muted");
+            }
+          }).catch(e => console.error("Stem play failed:", name, e));
+        }
       };
       if (isMediaPlaying(video)) {
         startStems();
@@ -511,7 +514,7 @@ const handleNowPlayingUpdate = (np) => {
     }, playbackStartTimeout);
   }
 
-  // Apply stem mix updates even when not loading a new video
+  // Apply stem mix updates when not loading a new video
   if (np.stem_mix && stemsActive) {
     applyStemMix(np.stem_mix);
   }
@@ -781,7 +784,6 @@ const setupSocketEvents = () => {
     const video = getVideoPlayer();
     video.currentTime = 0;
     if (video.paused) video.play();
-    // Restart stem audio from beginning too
     for (const audio of Object.values(stemAudios)) {
       audio.currentTime = 0;
       if (audio.paused && stemsActive) audio.play().catch(() => {});

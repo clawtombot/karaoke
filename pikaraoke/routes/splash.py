@@ -89,7 +89,9 @@ def splash():
     external_url = request.url_root.rstrip("/")
     k.generate_qr_code(external_url)
 
-    return render_template(
+    from flask import make_response
+
+    resp = make_response(render_template(
         "splash.html",
         site_title=site_name,
         blank_page=True,
@@ -104,4 +106,6 @@ def splash():
         disable_score=k.disable_score,
         bg_music_volume=k.bg_music_volume,
         has_bg_video=k.bg_video_path is not None,
-    )
+    ))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return resp
