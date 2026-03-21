@@ -445,9 +445,11 @@ const setupVideoPlayer = () => {
   const video = getVideoPlayer();
   video.addEventListener("play", () => {
     $("#video-container").show();
-    if (isMaster) {
-      setTimeout(() => { socket.emit("start_song") }, 1200);
-    }
+    // Any splash that successfully plays video should notify the server.
+    // Previously only the master emitted this, but the master role can be
+    // stolen by non-browser clients (health checks), leaving the real
+    // browser as a slave that never signals playback.
+    setTimeout(() => { socket.emit("start_song") }, 1200);
   });
 
   // Master reports playback position to server
