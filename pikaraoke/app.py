@@ -81,7 +81,7 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
-app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 3600  # Cache static assets for 1 hour
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0  # No cache during development
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
 # Only expose the Swagger UI when --enable-swagger is passed.
