@@ -112,21 +112,10 @@ class PlaybackController:
         self.now_playing_subtitle_url = result.subtitle_url
         self.is_paused = False
 
+        self.is_playing = True
         self.events.emit("playback_started")
 
-        # Wait for client to connect
-        max_retries = 100
-        while not self.is_playing and max_retries > 0:
-            time.sleep(0.1)
-            max_retries -= 1
-
-        if not self.is_playing:
-            error_msg = _("Stream was not playable! Skipping track")
-            logging.error(error_msg)
-            self.end_song(reason="timeout")
-            return PlaybackResult(success=False, error=error_msg)
-
-        logging.debug("Stream is playing")
+        logging.info(f"Song starting: {self.now_playing}")
         return result
 
     def start_song(self) -> None:
