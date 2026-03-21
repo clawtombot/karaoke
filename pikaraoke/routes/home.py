@@ -27,7 +27,6 @@ def home():
         is_transpose_enabled=k.is_transpose_enabled,
         volume=k.volume,
         vocal_splitter_enabled=k.vocal_splitter_enabled,
-        vocal_mode=k.vocal_mode,
         url=external_url,
         qr_code_url=url_for("images.qrcode"),
     )

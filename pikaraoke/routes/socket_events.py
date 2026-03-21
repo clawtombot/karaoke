@@ -56,6 +56,18 @@ def setup_socket_events(socketio):
             socketio.emit("splash_role", "slave", room=sid)
             logging.info(f"Slave splash screens assigned: {sid}")
 
+    @socketio.on("stem_toggle")
+    def handle_stem_toggle(stem: str) -> None:
+        """Handle stem_toggle WebSocket event from phone UI.
+
+        Args:
+            stem: Stem name to toggle (e.g., 'vocals', 'drums').
+        """
+        k = get_karaoke_instance()
+        if k.toggle_stem(stem):
+            # Broadcast updated mix to all clients
+            socketio.emit("stem_mix_update", k.stem_mix)
+
     @socketio.on("playback_position")
     def handle_playback_position(position: float) -> None:
         """Handle playback_position WebSocket event from the master splash screen.

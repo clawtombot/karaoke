@@ -2,6 +2,7 @@
 
 import pytest
 
+from pikaraoke.constants import STEM_NAMES
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
@@ -88,7 +89,7 @@ class MockKaraoke:
         self.running = True
         self.now_playing_notification = None
         self.vocal_splitter_enabled = False
-        self.vocal_mode = "mixed"
+        self.stem_mix = {s: True for s in STEM_NAMES}
 
         # Set preferences that differ from defaults
         self.preferences.set("enable_fair_queue", True)

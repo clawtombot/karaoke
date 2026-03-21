@@ -234,10 +234,6 @@ def main() -> None:
         socketio=socketio,
         preferred_language=args.preferred_language,
         vocal_splitter=args.vocal_splitter,
-        vocal_model=args.vocal_model,
-        vocal_gpu=args.vocal_gpu,
-        vocal_mode=args.vocal_mode,
-        vocal_tta=args.vocal_tta,
     )
 
     # expose karaoke object to the flask app

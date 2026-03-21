@@ -26,6 +26,14 @@ let isMaster = false;
 let uiScale = null;
 let clockIntervalId = null;
 
+// Stem mixer state
+let stemContext = null;
+let stemGains = {};       // {drums: GainNode, ...}
+let stemMasterGain = null;
+let stemAudios = {};      // {drums: HTMLAudioElement, ...}
+let stemSyncInterval = null;
+let stemsActive = false;
+
 // Browser detection
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 const isMobileSafari = isSafari && (/iPhone|iPad|iPod/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1);
@@ -98,11 +106,111 @@ const handleConfirmation = () => {
   loadNowPlaying();
 };
 
+// ---------------------------------------------------------------------------
+// Stem mixer: Web Audio API for live stem toggling
+// ---------------------------------------------------------------------------
+
+const setupStemMixer = (stemUrls, stemMix) => {
+  teardownStemMixer();
+
+  stemContext = new AudioContext();
+  stemMasterGain = stemContext.createGain();
+  stemMasterGain.gain.value = volume;
+  stemMasterGain.connect(stemContext.destination);
+
+  const root = window.SCRIPT_ROOT || '';
+  for (const [name, url] of Object.entries(stemUrls)) {
+    const audio = new Audio(root + url);
+    audio.crossOrigin = "anonymous";
+    audio.preload = "auto";
+    const source = stemContext.createMediaElementSource(audio);
+    const gain = stemContext.createGain();
+    gain.gain.value = stemMix[name] ? 1 : 0;
+    source.connect(gain);
+    gain.connect(stemMasterGain);
+    stemAudios[name] = audio;
+    stemGains[name] = gain;
+  }
+
+  stemsActive = true;
+
+  // Sync stem audio to video every 500ms
+  stemSyncInterval = setInterval(syncStemAudio, 500);
+};
+
+const teardownStemMixer = () => {
+  if (stemSyncInterval) {
+    clearInterval(stemSyncInterval);
+    stemSyncInterval = null;
+  }
+  for (const audio of Object.values(stemAudios)) {
+    audio.pause();
+    audio.src = "";
+  }
+  stemAudios = {};
+  stemGains = {};
+  if (stemContext && stemContext.state !== 'closed') {
+    stemContext.close().catch(() => {});
+  }
+  stemContext = null;
+  stemMasterGain = null;
+  stemsActive = false;
+};
+
+const playStemAudio = () => {
+  if (!stemsActive) return;
+  // Resume AudioContext if suspended (autoplay policy)
+  if (stemContext && stemContext.state === 'suspended') {
+    stemContext.resume();
+  }
+  for (const audio of Object.values(stemAudios)) {
+    audio.play().catch(e => console.log("Stem play error:", e));
+  }
+};
+
+const pauseStemAudio = () => {
+  for (const audio of Object.values(stemAudios)) {
+    audio.pause();
+  }
+};
+
+const syncStemAudio = () => {
+  if (!stemsActive) return;
+  const video = getVideoPlayer();
+  if (!isMediaPlaying(video)) return;
+  for (const audio of Object.values(stemAudios)) {
+    if (Math.abs(audio.currentTime - video.currentTime) > 0.3) {
+      audio.currentTime = video.currentTime;
+    }
+  }
+};
+
+const setStemEnabled = (stem, enabled) => {
+  if (stemGains[stem]) {
+    stemGains[stem].gain.value = enabled ? 1 : 0;
+  }
+};
+
+const applyStemMix = (mix) => {
+  for (const [name, enabled] of Object.entries(mix)) {
+    setStemEnabled(name, enabled);
+  }
+};
+
+const setStemMasterVolume = (val) => {
+  if (stemMasterGain) {
+    stemMasterGain.gain.value = val;
+  }
+};
+
+// ---------------------------------------------------------------------------
+
 const hideVideo = () => {
   $("#video-container").hide();
 }
 
 const endSong = async (reason = null, showScore = false) => {
+  teardownStemMixer();
   if (showScore && !PikaraokeConfig.disableScore) {
     isScoreShown = true;
     await startScore("/static/");
@@ -347,7 +455,17 @@ const handleNowPlayingUpdate = (np) => {
 
     if (volume !== np.volume) {
       volume = np.volume;
+    }
+
+    // Stem mixer: if stems are available, mute video and use Web Audio
+    if (np.stems_available && np.stem_urls) {
+      video.muted = true;
+      setupStemMixer(np.stem_urls, np.stem_mix || {});
+      setStemMasterVolume(volume);
+    } else {
+      video.muted = false;
       video.volume = volume;
+      teardownStemMixer();
     }
 
     const duration = $("#duration");
@@ -366,6 +484,19 @@ const handleNowPlayingUpdate = (np) => {
       setTimeout(() => video.play(), 1000);
     });
 
+    // Start stem audio once video begins playing
+    if (stemsActive) {
+      const startStems = () => {
+        playStemAudio();
+        syncStemAudio();
+      };
+      if (isMediaPlaying(video)) {
+        startStems();
+      } else {
+        video.addEventListener('playing', startStems, { once: true });
+      }
+    }
+
     if (np.now_playing_position && isMediaPlaying(video)) {
       if (Math.abs(video.currentTime - np.now_playing_position) > 2) {
         console.log("Syncing to server position:", np.now_playing_position);
@@ -378,6 +509,11 @@ const handleNowPlayingUpdate = (np) => {
         endSong("failed to start");
       }
     }, playbackStartTimeout);
+  }
+
+  // Apply stem mix updates even when not loading a new video
+  if (np.stem_mix && stemsActive) {
+    applyStemMix(np.stem_mix);
   }
 }
 
@@ -596,6 +732,7 @@ const setupSocketEvents = () => {
         video.pause();
         video.volume = currVolume;
       });
+      pauseStemAudio();
     }
   });
   socket.on('play', () => {
@@ -605,9 +742,12 @@ const setupSocketEvents = () => {
       video.play();
       video.volume = 0;
       $(video).animate({ volume: currVolume }, 1000);
+      playStemAudio();
+      syncStemAudio();
     }
   });
   socket.on('skip', (reason) => {
+    teardownStemMixer();
     const video = getVideoPlayer();
     const currVolume = video.volume;
     if (isMediaPlaying(video)) {
@@ -623,18 +763,32 @@ const setupSocketEvents = () => {
   });
   socket.on('volume', (val) => {
     const video = getVideoPlayer();
+    let newVol;
     if (val === "up") {
-      video.volume = Math.min(1, video.volume + 0.1);
+      newVol = Math.min(1, (stemsActive ? volume : video.volume) + 0.1);
     } else if (val === "down") {
-      video.volume = Math.max(0, video.volume - 0.1);
+      newVol = Math.max(0, (stemsActive ? volume : video.volume) - 0.1);
     } else {
-      video.volume = val;
+      newVol = val;
     }
+    volume = newVol;
+    if (!stemsActive) {
+      video.volume = newVol;
+    }
+    setStemMasterVolume(newVol);
   });
   socket.on('restart', () => {
     const video = getVideoPlayer();
     video.currentTime = 0;
     if (video.paused) video.play();
+    // Restart stem audio from beginning too
+    for (const audio of Object.values(stemAudios)) {
+      audio.currentTime = 0;
+      if (audio.paused && stemsActive) audio.play().catch(() => {});
+    }
+  });
+  socket.on('stem_mix_update', (mix) => {
+    applyStemMix(mix);
   });
   socket.on("notification", (data) => {
     const notification = data.split("::");

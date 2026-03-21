@@ -632,6 +632,41 @@ td { border-color: var(--pr-border) !important; }
   color: var(--pr-text);
 }
 
+/* Stem Mixer */
+.pr-stem-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+.pr-stem-btn {
+  padding: 6px 4px;
+  border-radius: 7px;
+  font-size: 10px; font-weight: 600;
+  font-family: var(--pr-display);
+  color: var(--pr-faint);
+  text-align: center; cursor: pointer;
+  transition: all 0.2s; border: none;
+  background: rgba(0,0,0,0.3);
+  white-space: nowrap;
+}
+.pr-stem-btn.active {
+  background: rgba(0,210,255,0.15);
+  color: #00d2ff;
+  box-shadow: inset 0 0 0 1px rgba(0,210,255,0.4);
+}
+.pr-stem-btn:not(.active) {
+  opacity: 0.5;
+}
+.pr-stem-btn:hover {
+  background: var(--pr-surface2);
+  color: var(--pr-text);
+  opacity: 1;
+}
+.pr-stem-btn i {
+  font-size: 9px;
+  margin-right: 2px;
+}
+
 /* Transpose */
 .pr-key-block { display: flex; flex-direction: column; }
 .pr-key-row { display: flex; align-items: center; gap: 6px; }

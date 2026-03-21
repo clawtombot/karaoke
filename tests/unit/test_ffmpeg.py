@@ -80,13 +80,17 @@ class TestSupportsHardwareH264Encoding:
             assert supports_hardware_h264_encoding() is False
 
     def test_arm_with_encoder(self):
-        """Test ARM with h264_v4l2m2m available."""
-        mock_result = MagicMock()
-        mock_result.stdout = b"h264_v4l2m2m encoder available"
+        """Test ARM with h264_v4l2m2m available and functional."""
+        codecs_result = MagicMock()
+        codecs_result.stdout = b"h264_v4l2m2m encoder available"
+
+        verify_result = MagicMock()
+        verify_result.returncode = 0
 
         with patch("platform.machine", return_value="aarch64"):
-            with patch("subprocess.run", return_value=mock_result):
-                assert supports_hardware_h264_encoding() is True
+            with patch("pikaraoke.lib.ffmpeg.is_running_in_docker", return_value=False):
+                with patch("subprocess.run", side_effect=[codecs_result, verify_result]):
+                    assert supports_hardware_h264_encoding() is True
 
     def test_arm_without_encoder(self):
         """Test ARM without h264_v4l2m2m available."""

@@ -21,6 +21,7 @@ from pikaraoke.lib.ffmpeg import (
     is_transpose_enabled,
     supports_hardware_h264_encoding,
 )
+from pikaraoke.constants import STEM_NAMES, STEMS_SUBDIR, stems_complete
 from pikaraoke.lib.get_platform import (
     get_data_directory,
     get_os_version,
@@ -64,9 +65,8 @@ class Karaoke:
     now_playing_notification: str | None = None
     volume: float
 
-    # Vocal splitter state
+    # Stem splitter state
     vocal_splitter_enabled: bool = False
-    vocal_mode: str = "mixed"  # "mixed" | "vocal" | "nonvocal"
     _vocal_worker: subprocess.Popen | None = None
 
     qr_code_path: str | None = None
@@ -104,11 +104,7 @@ class Karaoke:
         socketio=None,
         streaming_format: str = "hls",
         url: str | None = None,
-        vocal_gpu: int | None = None,
-        vocal_mode: str = "mixed",
-        vocal_model: str | None = None,
         vocal_splitter: bool = False,
-        vocal_tta: bool = False,
         youtubedl_proxy: str | None = None,
         # Preference parameters (defaults from PreferenceManager.DEFAULTS)
         avsync: float | None = None,
@@ -263,28 +259,17 @@ class Karaoke:
         )
         self.download_manager.start()
 
-        # Vocal splitter setup
+        # Stem splitter setup
+        self.stem_mix = {s: True for s in STEM_NAMES}
         if vocal_splitter:
-            self._init_vocal_splitter(vocal_mode, vocal_model, vocal_gpu, vocal_tta)
+            self._init_stem_splitter()
 
-    def _init_vocal_splitter(
-        self,
-        vocal_mode: str,
-        model_path: str | None,
-        gpu: int | None,
-        tta: bool,
-    ) -> None:
-        """Set up vocal splitting: create output dirs and launch the worker process."""
+    def _init_stem_splitter(self) -> None:
+        """Set up 6-stem splitting: create output dir and launch the worker process."""
         self.vocal_splitter_enabled = True
-        self.vocal_mode = vocal_mode if vocal_mode in ("mixed", "vocal", "nonvocal") else "mixed"
 
-        nonvocal_dir = os.path.join(self.download_path, "nonvocal")
-        vocal_dir = os.path.join(self.download_path, "vocal")
-        os.makedirs(nonvocal_dir, exist_ok=True)
-        os.makedirs(vocal_dir, exist_ok=True)
-
-        if model_path is None:
-            model_path = os.path.join(os.path.dirname(__file__), "models", "baseline.pth")
+        stems_dir = os.path.join(self.download_path, STEMS_SUBDIR)
+        os.makedirs(stems_dir, exist_ok=True)
 
         cmd = [
             sys.executable,
@@ -292,50 +277,32 @@ class Karaoke:
             "pikaraoke.lib.vocal_splitter",
             "--download-path",
             self.download_path,
-            "--model",
-            model_path,
         ]
-        if gpu is not None:
-            cmd += ["--gpu", str(gpu)]
-        if tta:
-            cmd.append("--tta")
 
-        logging.info("Starting vocal splitter worker: %s", " ".join(cmd))
+        logging.info("Starting stem splitter worker: %s", " ".join(cmd))
         self._vocal_worker = subprocess.Popen(cmd)
 
-    def get_vocal_track_path(self, file_path: str) -> str | None:
-        """Return the alternate audio track path for the current vocal mode, or None if unavailable.
-
-        Args:
-            file_path: Path to the song being played.
-
-        Returns:
-            Path to the vocal/nonvocal M4A if it exists, else None.
-        """
-        if not self.vocal_splitter_enabled or self.vocal_mode == "mixed":
+    def get_stem_paths(self, file_path: str) -> dict[str, str] | None:
+        """Return dict of stem_name -> M4A path if all stems are ready, else None."""
+        if not self.vocal_splitter_enabled:
             return None
 
         basename = os.path.basename(file_path)
-        track_path = os.path.join(self.download_path, self.vocal_mode, basename + ".m4a")
-        if os.path.isfile(track_path):
-            return track_path
+        stem_dir = os.path.join(self.download_path, STEMS_SUBDIR, basename)
+        if not os.path.isdir(stem_dir) or not stems_complete(stem_dir):
+            return None
 
-        logging.debug("Vocal track not yet ready: %s", track_path)
-        return None
+        return {name: os.path.join(stem_dir, f"{name}.m4a") for name in STEM_NAMES}
 
-    def set_vocal_mode(self, mode: str) -> bool:
-        """Switch vocal playback mode.
+    def toggle_stem(self, stem: str) -> bool:
+        """Toggle a stem on/off in the mix.
 
-        Args:
-            mode: One of 'mixed', 'vocal', 'nonvocal'.
-
-        Returns:
-            True if mode was changed, False if invalid.
+        Returns True if toggled, False if invalid stem name.
         """
-        if mode not in ("mixed", "vocal", "nonvocal"):
+        if stem not in STEM_NAMES:
             return False
-        self.vocal_mode = mode
-        logging.info("Vocal mode set to: %s", mode)
+        self.stem_mix[stem] = not self.stem_mix[stem]
+        logging.info("Stem %s toggled to %s", stem, self.stem_mix[stem])
         self.update_now_playing_socket()
         return True
 
@@ -518,8 +485,15 @@ class Karaoke:
             return False
 
     def stop(self) -> None:
-        """Stop the karaoke run loop."""
+        """Stop the karaoke run loop and clean up subprocesses."""
         self.running = False
+        if getattr(self, "_vocal_worker", None):
+            self._vocal_worker.terminate()
+            try:
+                self._vocal_worker.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self._vocal_worker.kill()
+            self._vocal_worker = None
 
     def handle_run_loop(self) -> None:
         """Handle one iteration of the main run loop with a sleep interval."""
@@ -533,6 +507,8 @@ class Karaoke:
         """Reset all now playing state to defaults."""
         self.playback_controller.reset_now_playing()
         self.volume = self.preferences.get_or_default("volume")
+        self.stem_mix = {s: True for s in STEM_NAMES}
+        self._stem_url_cache = (None, None, None)
         self.update_now_playing_socket()
 
     def get_now_playing(self) -> dict[str, Any]:
@@ -547,13 +523,34 @@ class Karaoke:
         # Get playback state from PlaybackController
         playback_state = self.playback_controller.get_now_playing()
 
+        # Build stem URLs for the currently playing file (cached to avoid repeated stat calls)
+        stem_urls = None
+        stems_available = False
+        now_file = self.playback_controller.now_playing_filename
+        if self.vocal_splitter_enabled and now_file:
+            cache = getattr(self, "_stem_url_cache", (None, None, None))
+            if cache[0] == now_file and cache[1] is not None:
+                stems_available, stem_urls = cache[1], cache[2]
+            else:
+                stem_paths = self.get_stem_paths(now_file)
+                if stem_paths:
+                    stems_available = True
+                    basename = os.path.basename(now_file)
+                    stem_urls = {
+                        name: f"/stems/{basename}/{name}.m4a"
+                        for name in STEM_NAMES
+                    }
+                self._stem_url_cache = (now_file, stems_available, stem_urls)
+
         return {
             **playback_state,
             "up_next": next_song["title"] if next_song else None,
             "next_user": next_song["user"] if next_song else None,
             "volume": self.volume,
             "vocal_splitter_enabled": self.vocal_splitter_enabled,
-            "vocal_mode": self.vocal_mode,
+            "stems_available": stems_available,
+            "stem_urls": stem_urls,
+            "stem_mix": self.stem_mix,
         }
 
     def update_now_playing_socket(self) -> None:
@@ -592,9 +589,8 @@ class Karaoke:
                     song = self.queue_manager.pop_next()
                     if not song:
                         continue
-                    alternate_audio = self.get_vocal_track_path(song["file"])
                     result = self.playback_controller.play_file(
-                        song["file"], song["user"], song["semitones"], alternate_audio
+                        song["file"], song["user"], song["semitones"]
                     )
 
                     if not result.success and result.error:

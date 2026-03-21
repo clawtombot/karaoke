@@ -78,18 +78,13 @@ class PlaybackController:
         file_path: str,
         user: str,
         semitones: int = 0,
-        alternate_audio_path: str | None = None,
     ) -> PlaybackResult:
         """Start playback of a media file.
-
-        Blocks until client connects or timeout occurs.
 
         Args:
             file_path: Path to the media file to play.
             user: User who queued the song.
             semitones: Number of semitones to transpose (0 = no change).
-            alternate_audio_path: Optional M4A to substitute for source audio
-                (used for vocal/nonvocal playback modes).
 
         Returns:
             PlaybackResult with success status and stream information.
@@ -98,7 +93,7 @@ class PlaybackController:
             f"Playing file: {file_path} for user: {user}, transposed {semitones} semitones"
         )
 
-        result = self.stream_manager.play_file(file_path, semitones, alternate_audio_path)
+        result = self.stream_manager.play_file(file_path, semitones)
 
         if not result.success:
             return result

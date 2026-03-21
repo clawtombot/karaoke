@@ -27,7 +27,7 @@ def get_media_duration(file_path: str) -> int | None:
     try:
         duration = ffmpeg.probe(file_path)["format"]["duration"]
         return round(float(duration))
-    except:
+    except Exception:
         return None
 
 
@@ -39,7 +39,6 @@ def build_ffmpeg_cmd(
     buffer_fully_before_playback: bool = False,
     avsync: float = 0,
     cdg_pixel_scaling: bool = False,
-    alternate_audio_path: str | None = None,
 ) -> Any:
     """Build an ffmpeg command for transcoding media.
 
@@ -53,8 +52,6 @@ def build_ffmpeg_cmd(
         force_mp4_encoding: If True, force mp4 encoding.
         avsync: Audio/video sync adjustment in seconds.
         cdg_pixel_scaling: Enable pixel scaling for CDG rendering.
-        alternate_audio_path: Optional path to an M4A file whose audio replaces
-            the source audio (used for vocal/nonvocal playback modes).
 
     Returns:
         ffmpeg stream object ready to execute with run_async().
@@ -96,12 +93,7 @@ def build_ffmpeg_cmd(
     else:
         input = ffmpeg.input(fr.file_path)
 
-    # Use alternate audio track (vocal/nonvocal M4A) when provided
-    if alternate_audio_path:
-        audio = ffmpeg.input(alternate_audio_path).audio
-        acodec = "aac"  # must re-encode since we're swapping audio streams
-    else:
-        audio = input.audio
+    audio = input.audio
 
     # Audio sync adjustment: delay or trim
     if avsync > 0:

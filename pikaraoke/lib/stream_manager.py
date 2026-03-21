@@ -74,7 +74,7 @@ class StreamManager:
         self.ffmpeg_log: Queue | None = None
 
     def play_file(
-        self, file_path: str, semitones: int = 0, alternate_audio_path: str | None = None
+        self, file_path: str, semitones: int = 0,
     ) -> PlaybackResult:
         """Start playback of a media file.
 
@@ -83,8 +83,6 @@ class StreamManager:
         Args:
             file_path: Path to the media file to play.
             semitones: Number of semitones to transpose (0 = no change).
-            alternate_audio_path: Optional M4A whose audio replaces the source audio
-                (used for vocal/nonvocal playback modes).
 
         Returns:
             PlaybackResult with success status and stream information.
@@ -106,7 +104,6 @@ class StreamManager:
             or is_transcoding_required(file_path)
             or avsync != 0
             or is_hls
-            or alternate_audio_path is not None
         )
 
         logging.debug(f"Requires transcoding: {requires_transcoding}")
@@ -132,7 +129,7 @@ class StreamManager:
             is_buffering_complete = True
         else:
             is_transcoding_complete, is_buffering_complete = self._transcode_file(
-                fr, semitones, is_hls, alternate_audio_path
+                fr, semitones, is_hls
             )
 
         subtitle_url = None
@@ -179,7 +176,6 @@ class StreamManager:
         fr: FileResolver,
         semitones: int,
         is_hls: bool,
-        alternate_audio_path: str | None = None,
     ) -> tuple[bool, bool]:
         """Transcode a file using FFmpeg.
 
@@ -187,7 +183,6 @@ class StreamManager:
             fr: FileResolver instance with file information.
             semitones: Semitones to transpose.
             is_hls: Whether to use HLS streaming format.
-            alternate_audio_path: Optional M4A to substitute for source audio.
 
         Returns:
             Tuple of (is_transcoding_complete, is_buffering_complete).
@@ -210,7 +205,6 @@ class StreamManager:
             complete_transcode_before_play,
             avsync,
             cdg_pixel_scaling,
-            alternate_audio_path,
         )
         self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 

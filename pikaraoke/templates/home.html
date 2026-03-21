@@ -90,6 +90,19 @@
     } else {
       $('#pr-pause-icon').attr('class', 'icon icon-pause pr-icon-ctrl');
     }
+
+    // Stem mix buttons
+    if (np.stem_mix) {
+      updateStemButtons(np.stem_mix);
+    }
+    // Show/hide stem controls based on availability
+    if (np.stems_available) {
+      $('.pr-stems-ready').show();
+      $('.pr-stems-pending').hide();
+    } else if (np.vocal_splitter_enabled) {
+      $('.pr-stems-ready').hide();
+      $('.pr-stems-pending').show();
+    }
   }
 
   function formatTime(seconds) {
@@ -99,11 +112,21 @@
     return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
   }
 
-  function setVocalMode(mode) {
-    $.get(window.SCRIPT_ROOT + '/vocal_mode/' + mode, function(data) {
-      $('.pr-seg-opt').removeClass('active');
-      $('#pr-vocal-' + data.vocal_mode).addClass('active');
+  function toggleStem(stem) {
+    $.get(window.SCRIPT_ROOT + '/stem_toggle/' + stem, function(data) {
+      if (data.stem_mix) updateStemButtons(data.stem_mix);
     });
+  }
+
+  function updateStemButtons(mix) {
+    for (var stem in mix) {
+      var btn = $('#pr-stem-' + stem);
+      if (mix[stem]) {
+        btn.addClass('active');
+      } else {
+        btn.removeClass('active');
+      }
+    }
   }
 
   $(function() {
@@ -174,14 +197,15 @@
       }
     });
 
-    // Vocal mode
-    $('#pr-vocal-mixed').click(function() { setVocalMode('mixed'); });
-    $('#pr-vocal-nonvocal').click(function() { setVocalMode('nonvocal'); });
-    $('#pr-vocal-vocal').click(function() { setVocalMode('vocal'); });
+    // Stem toggles
+    $('.pr-stem-btn').click(function() {
+      toggleStem($(this).data('stem'));
+    });
 
     // Initial load via HTTP, then live updates via WebSocket
     loadNowPlaying();
     window.socket.on('now_playing', function(np) { handleNowPlaying(np); });
+    window.socket.on('stem_mix_update', function(mix) { updateStemButtons(mix); });
 
     // Reconnect on tab visibility change
     document.addEventListener('visibilitychange', function() {
@@ -258,15 +282,21 @@
         <!-- Adjusters: vocal mode + key -->
         <div class="pr-adjusters pr-controls-area">
           <div>
-            <span class="pr-adj-label">{{ _("VOCAL MODE") }}</span>
+            <span class="pr-adj-label">{{ _("STEM MIXER") }}</span>
             {% if vocal_splitter_enabled %}
-            <div class="pr-seg">
-              <button id="pr-vocal-mixed"    class="pr-seg-opt {% if vocal_mode == 'mixed' %}active{% endif %}">{{ _("Mixed") }}</button>
-              <button id="pr-vocal-nonvocal" class="pr-seg-opt {% if vocal_mode == 'nonvocal' %}active{% endif %}">{{ _("Instrumental") }}</button>
-              <button id="pr-vocal-vocal"    class="pr-seg-opt {% if vocal_mode == 'vocal' %}active{% endif %}">{{ _("Vocals Only") }}</button>
+            <div class="pr-stems-ready" style="display:none">
+              <div class="pr-stem-grid">
+                <button id="pr-stem-drums"  class="pr-stem-btn active" data-stem="drums"  title="Drums"><i class="icon icon-music"></i> {{ _("Drums") }}</button>
+                <button id="pr-stem-bass"   class="pr-stem-btn active" data-stem="bass"   title="Bass"><i class="icon icon-music"></i> {{ _("Bass") }}</button>
+                <button id="pr-stem-other"  class="pr-stem-btn active" data-stem="other"  title="Other"><i class="icon icon-music"></i> {{ _("Other") }}</button>
+                <button id="pr-stem-vocals" class="pr-stem-btn active" data-stem="vocals" title="Vocals"><i class="icon icon-mic-1"></i> {{ _("Vocals") }}</button>
+                <button id="pr-stem-guitar" class="pr-stem-btn active" data-stem="guitar" title="Guitar"><i class="icon icon-music"></i> {{ _("Guitar") }}</button>
+                <button id="pr-stem-piano"  class="pr-stem-btn active" data-stem="piano"  title="Piano"><i class="icon icon-music"></i> {{ _("Piano") }}</button>
+              </div>
             </div>
+            <div class="pr-stems-pending" style="font-size:11px;color:var(--pr-faint)">{{ _("Stems processing...") }}</div>
             {% else %}
-            <div style="font-size:11px;color:var(--pr-faint)">{{ _("Vocal splitting not enabled") }}</div>
+            <div style="font-size:11px;color:var(--pr-faint)">{{ _("Stem splitting not enabled") }}</div>
             {% endif %}
           </div>
           {% if is_transpose_enabled %}

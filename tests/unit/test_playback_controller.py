@@ -97,16 +97,13 @@ class TestPlaybackControllerPlayFile:
         assert pc.now_playing_duration == 180
         assert pc.is_paused is False
 
-    @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("flask_babel._", side_effect=lambda x: x)
-    def test_play_file_timeout(self, mock_gettext, mock_sleep, test_prefs):
-        """Test playback timeout when client never connects."""
+    def test_play_file_succeeds_without_client(self, test_prefs):
+        """Test playback returns success once stream is ready, before client connects."""
         events = EventSystem()
         filename_fn = lambda x, remove_youtube_id=True: "Test Song"
 
         pc = PlaybackController(test_prefs, events, filename_fn)
 
-        # Mock StreamManager.play_file to return success
         mock_result = PlaybackResult(
             success=True,
             stream_url="/stream/123.m3u8",
@@ -114,13 +111,11 @@ class TestPlaybackControllerPlayFile:
             duration=180,
         )
         pc.stream_manager.play_file = MagicMock(return_value=mock_result)
-        pc.stream_manager.kill_ffmpeg = MagicMock()
 
-        # Client never connects (is_playing stays False)
         result = pc.play_file("/songs/test.mp4", "TestUser", semitones=0)
 
-        assert result.success is False
-        assert result.error is not None
+        assert result.success is True
+        assert pc.is_playing is True
 
     def test_play_file_stream_failure(self, test_prefs):
         """Test playback when stream setup fails."""
