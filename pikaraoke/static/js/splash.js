@@ -578,6 +578,15 @@ const setupSocketEvents = () => {
   socket.on('disconnect', (reason) => {
     console.warn('Socket disconnected:', reason);
     flashNotification(PikaraokeConfig.translations.socketConnectionLost, "is-danger");
+    // Auto-reload after disconnect to recover from server restarts
+    // Socket.IO will retry the connection, but if the server fully restarted
+    // the page state may be stale. Reload after a delay to get fresh JS/HTML.
+    setTimeout(() => {
+      if (!socket.connected) {
+        console.log('Still disconnected after 10s, reloading page...');
+        window.location.reload();
+      }
+    }, 10000);
   });
   socket.on('pause', () => {
     const video = getVideoPlayer();
