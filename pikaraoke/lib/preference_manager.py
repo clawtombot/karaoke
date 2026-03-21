@@ -38,7 +38,7 @@ class PreferenceManager:
         "disable_score": False,
         "limit_user_songs_by": 0,
         "enable_fair_queue": False,
-        "cdg_pixel_scaling": False,
+        "cdg_pixel_scaling": True,
         "avsync": 0,
         "browse_results_per_page": 100,
         "low_score_phrases": "",

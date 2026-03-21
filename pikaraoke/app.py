@@ -53,9 +53,17 @@ from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
 
 args = parse_pikaraoke_args()
+
+# Suppress noisy protocol-mismatch messages from health-check clients (e.g. NanoClaw
+# proxy) that connect with a different Engine.IO version. These are harmless but
+# appear as ERROR in the default engineio logger, so we cap them at WARNING.
+_engineio_logger = logging.getLogger("engineio.server")
+if _engineio_logger.level == logging.NOTSET:
+    _engineio_logger.setLevel(logging.WARNING)
+
 # Allow all origins for Socket.IO since the app may be accessed via reverse proxy
 # (e.g., Tailscale) where the origin differs from the local server URL
-socketio = SocketIO(async_mode="gevent", cors_allowed_origins="*")
+socketio = SocketIO(async_mode="gevent", cors_allowed_origins="*", engineio_logger=False)
 babel = Babel()
 
 
