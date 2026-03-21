@@ -124,12 +124,9 @@ class _Separator:
                 batch = torch.from_numpy(X_dataset[i : i + self.batchsize]).to(self.device)
                 mask = self.model.predict_mask(batch)
                 mask_list.append(mask.detach().cpu().numpy())
-        import numpy as np
-        return np.concatenate(
-            [np.concatenate(m, axis=2) for m in [mask_list]], axis=2
-        ).squeeze(0) if len(mask_list) == 1 else np.concatenate(
-            [m for sublist in mask_list for m in [sublist]], axis=2
-        )
+        # Concatenate all batches (may differ in axis 0 size), then merge patches
+        all_masks = np.concatenate(mask_list, axis=0)
+        return np.concatenate(list(all_masks), axis=2)
 
     def separate(self, X_spec):
         import numpy as np
