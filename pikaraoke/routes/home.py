@@ -1,7 +1,7 @@
 """Home page route."""
 
 import flask_babel
-from flask import render_template
+from flask import render_template, request, url_for
 from flask_smorest import Blueprint
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
@@ -17,6 +17,7 @@ def home():
     """Home page with now playing info and controls."""
     k = get_karaoke_instance()
     site_name = get_site_name()
+    external_url = request.url_root.rstrip("/")
     return render_template(
         "home.html",
         site_title=site_name,
@@ -27,4 +28,6 @@ def home():
         volume=k.volume,
         vocal_splitter_enabled=k.vocal_splitter_enabled,
         vocal_mode=k.vocal_mode,
+        url=external_url,
+        qr_code_url=url_for("images.qrcode"),
     )

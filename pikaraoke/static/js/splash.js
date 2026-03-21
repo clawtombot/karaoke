@@ -419,7 +419,7 @@ const setupOverlayMenus = () => {
     } else {
       setUserCookie();
       $("#menu-container").show();
-      $("#menu-container iframe").attr("src", "/");
+      $("#menu-container iframe").attr("src", (window.SCRIPT_ROOT || '') + "/");
       showMenu = true;
     }
   });

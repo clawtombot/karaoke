@@ -4,7 +4,7 @@ import shutil
 import subprocess
 
 import flask_babel
-from flask import jsonify, render_template
+from flask import jsonify, render_template, request
 from flask_smorest import Blueprint
 
 from pikaraoke.karaoke import Karaoke
@@ -85,11 +85,15 @@ def splash():
                 # handle raspiwifi connection mode
                 text = get_raspi_wifi_text()
 
+    # Use the external URL (respects reverse proxy prefix) for QR code and display
+    external_url = request.url_root.rstrip("/")
+    k.generate_qr_code(external_url)
+
     return render_template(
         "splash.html",
         site_title=site_name,
         blank_page=True,
-        url=k.url,
+        url=external_url,
         hostap_info=text,
         hide_url=k.hide_url,
         show_splash_clock=k.show_splash_clock,

@@ -206,8 +206,7 @@
         $(document).on('click', '.add-random', function(e) {
             e.preventDefault();
             const amount = $('#randomNumberInput').val();
-            const baseUrl = '/queue/addrandom';
-            $.get(`${baseUrl}/${amount}`);
+            $.get((window.SCRIPT_ROOT || '') + '/queue/addrandom/' + amount);
         });
     }
 
@@ -294,18 +293,12 @@
         $('.navbar-menu').removeClass('is-active');
 
         try {
-            // Fetch the new page content with cache-busting to ensure fresh data
-            const cacheBuster = Date.now();
-            const separator = url.includes('?') ? '&' : '?';
-            const fetchUrl = `${url}${separator}_=${cacheBuster}`;
-
-            const response = await fetch(fetchUrl, {
+            // Fetch the new page content
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'text/html',
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache'
+                    'Accept': 'text/html'
                 }
             });
 
@@ -397,8 +390,12 @@
      * @param {string} url - The current URL (may include query params)
      */
     function updateNavHighlight(url) {
-        // Extract base path without query parameters
-        const path = url.split('?')[0];
+        // Extract base path without query parameters, strip SCRIPT_ROOT prefix
+        var path = url.split('?')[0];
+        var root = window.SCRIPT_ROOT || '';
+        if (root && path.startsWith(root)) {
+            path = path.substring(root.length) || '/';
+        }
 
         // Remove all active classes
         $('.navbar-item').removeClass('is-active');

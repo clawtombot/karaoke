@@ -355,7 +355,7 @@
   // Execute queue edit action via AJAX
   window.executeQueueAction = function(action) {
       var file = window.currentSongOptions.file;
-      var url = "/queue/edit?song=" + encodeURIComponent(file) + "&action=" + action;
+      var url = (window.SCRIPT_ROOT || '') + "/queue/edit?song=" + encodeURIComponent(file) + "&action=" + action;
 
       // Track moved file for highlight (except delete)
       if (action !== 'delete') {
@@ -443,7 +443,7 @@
 
   // Execute playback action and close modal
   window.executePlaybackAction = function(action) {
-      $.get('/' + action);
+      $.get((window.SCRIPT_ROOT || '') + '/' + action);
       window.closeNowPlayingOptions();
   };
 
@@ -478,7 +478,7 @@
       $(document).on('click', '.playback-btn', function(e) {
           e.preventDefault();
           var action = $(this).data('action');
-          $.get('/' + action);
+          $.get((window.SCRIPT_ROOT || '') + '/' + action);
       });
   });
 

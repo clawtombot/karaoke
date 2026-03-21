@@ -391,21 +391,29 @@ class Karaoke:
             output += f"  {key}: {value}\n"
         logging.debug("\n\n" + output)
 
-    def generate_qr_code(self) -> None:
-        """Generate a QR code image for the web interface URL."""
-        logging.debug("Generating URL QR code")
+    def generate_qr_code(self, url: str | None = None) -> None:
+        """Generate a QR code image for the web interface URL.
+
+        Args:
+            url: Override URL to encode. If None, uses self.url.
+                 Skips regeneration if the URL hasn't changed.
+        """
+        target_url = url or self.url
+        if hasattr(self, "_qr_url") and self._qr_url == target_url:
+            return
+        logging.debug("Generating URL QR code for: %s", target_url)
         qr = qrcode.QRCode(
             version=1,
             box_size=1,
             border=4,
         )
-        qr.add_data(self.url)
+        qr.add_data(target_url)
         qr.make()
         img = qr.make_image(image_factory=PyPNGImage)
-        # Use writable data directory instead of program directory
         data_dir = get_data_directory()
         self.qr_code_path = os.path.join(data_dir, "qrcode.png")
         img.save(self.qr_code_path)  # type: ignore[arg-type]
+        self._qr_url = target_url
 
     def send_notification(self, message: str, color: str = "primary") -> None:
         """Send a notification to the web interface.

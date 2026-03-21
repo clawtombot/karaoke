@@ -53,7 +53,9 @@ from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
 
 args = parse_pikaraoke_args()
-socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url)
+# Allow all origins for Socket.IO since the app may be accessed via reverse proxy
+# (e.g., Tailscale) where the origin differs from the local server URL
+socketio = SocketIO(async_mode="gevent", cors_allowed_origins="*")
 babel = Babel()
 
 
@@ -79,6 +81,7 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 3600  # Cache static assets for 1 hour
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
 # Only expose the Swagger UI when --enable-swagger is passed.
@@ -248,7 +251,7 @@ def main() -> None:
 
     # expose shared configuration variables to the flask app
     app.config["ADMIN_PASSWORD"] = args.admin_password
-    app.config["SITE_NAME"] = "PiKaraoke"
+    app.config["SITE_NAME"] = "HomeKaraoke"
 
     # Expose some functions to jinja templates
     app.jinja_env.globals.update(filename_from_path=SongManager.filename_from_path)

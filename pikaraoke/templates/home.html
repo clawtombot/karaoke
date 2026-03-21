@@ -1,13 +1,8 @@
 {% extends 'base.html' %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='hls-1.6.15.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/subtitles-octopus.js') }}"></script>
 <script>
   var volume = {{ volume|default(0.85) }};
-  var prHlsInstance = null;
-  var prOctopusInstance = null;
-  var prCurrentVideoUrl = null;
 
   if (typeof window.socket === 'undefined') {
     window.socket = io({ path: window.SCRIPT_ROOT + '/socket.io/' });
@@ -19,112 +14,61 @@
     });
   }
 
-  function loadVideoPlayer(np) {
-    var video = document.getElementById('pr-video');
-    if (!video) return;
-
-    // Subtitle setup
-    if (prOctopusInstance) {
-      try { prOctopusInstance.dispose(); } catch(e) {}
-      prOctopusInstance = null;
-    }
-    if (np.now_playing_subtitle_url) {
-      try {
-        prOctopusInstance = new SubtitlesOctopus({
-          video: video,
-          subUrl: np.now_playing_subtitle_url,
-          fonts: ['/static/fonts/Arial.ttf', '/static/fonts/DroidSansFallback.ttf'],
-          workerUrl: '/static/js/subtitles-octopus-worker.js'
-        });
-      } catch(e) { console.error('SubtitlesOctopus error:', e); }
-    }
-
-    // Video source setup
-    if (!np.now_playing_url || np.now_playing_url === prCurrentVideoUrl) return;
-    prCurrentVideoUrl = np.now_playing_url;
-    var streamUrl = np.now_playing_url;
-
-    if (prHlsInstance) { prHlsInstance.destroy(); prHlsInstance = null; }
-    video.pause();
-    video.src = '';
-    video.load();
-
-    var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    var useNativeHLS = isSafari && video.canPlayType('application/vnd.apple.mpegurl');
-
-    if (streamUrl.endsWith('.m3u8') && !useNativeHLS && typeof Hls !== 'undefined' && Hls.isSupported()) {
-      prHlsInstance = new Hls({
-        startPosition: -1,
-        enableWorker: true,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60
-      });
-      prHlsInstance.on(Hls.Events.ERROR, function(event, data) {
-        if (data.fatal) {
-          console.error('HLS fatal error:', data.type, data.details);
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            prHlsInstance.startLoad();
-          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-            prHlsInstance.recoverMediaError();
-          }
-        }
-      });
-      prHlsInstance.attachMedia(video);
-      prHlsInstance.loadSource(streamUrl);
-      prHlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
-        video.volume = volume;
-        video.play().catch(function(e) { console.warn('Autoplay blocked, waiting for user interaction'); });
-      });
-    } else {
-      // Native HLS (Safari) or progressive MP4
-      video.src = streamUrl;
-      video.load();
-      video.volume = volume;
-      video.play().catch(function(e) { console.warn('Play error:', e); });
-    }
-
-    $('#pr-video-panel').show();
-  }
-
   function handleNowPlaying(np) {
     if (np.now_playing) {
-      // Title + singer
       $('#pr-np-title').text(np.now_playing);
-      $('#pr-np-singer').html('<i class="icon icon-mic-1"></i> ' + (np.now_playing_user || ''));
+      $('#pr-np-singer').empty()
+        .append($('<i>').addClass('icon icon-mic-1'))
+        .append(' ' + (np.now_playing_user || ''));
 
-      // Key badge
       if (np.now_playing_transpose != 0) {
         $('#pr-key-badge').text(getSemitonesLabel(np.now_playing_transpose)).show();
       } else {
         $('#pr-key-badge').hide();
       }
 
-      // Show live indicator and controls
       $('.pr-np-live').show();
       $('.pr-controls-area').show();
       $('.pr-np-idle').hide();
 
-      // Load video player
-      loadVideoPlayer(np);
+      // Update progress bar
+      if (np.now_playing_duration && np.now_playing_position) {
+        var pct = Math.min(100, (np.now_playing_position / np.now_playing_duration) * 100);
+        $('#pr-progress-fill').css('width', pct + '%');
+        $('#pr-time-current').text(formatTime(np.now_playing_position));
+        $('#pr-time-duration').text(formatTime(np.now_playing_duration));
+        $('.pr-time-display').show();
+      }
     } else {
-      $('#pr-np-title').text('Nothing playing');
-      $('#pr-np-singer').text('Queue a song to get started');
+      $('#pr-np-title').text('{{ _("Nothing playing") }}');
+      $('#pr-np-singer').text('{{ _("Queue a song to get started") }}');
       $('.pr-np-live').hide();
       $('.pr-controls-area').hide();
       $('.pr-np-idle').show();
       $('#pr-key-badge').hide();
-      $('#pr-video-panel').hide();
-      prCurrentVideoUrl = null;
-      if (prHlsInstance) { prHlsInstance.destroy(); prHlsInstance = null; }
+      $('#pr-progress-fill').css('width', '0%');
+      $('.pr-time-display').hide();
     }
 
     // Up next
     if (np.up_next) {
       $('#pr-next-track').text(np.up_next);
-      $('#pr-next-singer').html('<i class="icon icon-mic-1"></i> ' + (np.next_user || ''));
+      $('#pr-next-singer').empty()
+        .append($('<i>').addClass('icon icon-mic-1'))
+        .append(' ' + (np.next_user || ''));
       $('.pr-next-block').show();
     } else {
       $('.pr-next-block').hide();
+    }
+
+    // Queue sidebar sync
+    if (np.now_playing) {
+      $('#pr-q-current').text(np.now_playing);
+      $('#pr-q-current-singer').text(np.now_playing_user || '');
+    }
+    if (np.up_next) {
+      $('#pr-q-next').text(np.up_next);
+      $('#pr-q-next-singer').text(np.next_user || '');
     }
 
     // Transpose slider sync
@@ -135,67 +79,52 @@
     }
 
     // Volume sync
-    if (np.volume != volume) {
+    if (np.volume !== undefined && np.volume != volume) {
       volume = np.volume;
       $('#volume-slider').val(volume);
-      var v = document.getElementById('pr-video');
-      if (v) v.volume = volume;
     }
 
     // Pause/play icon
     if (np.is_paused) {
-      $('#pause-resume').removeClass('icon-pause').addClass('icon-play');
-      $('#pr-pause-icon').attr('class', 'icon icon-play');
-      $('.playing_gif').attr('src', "{{ url_for('static', filename='images/now-playing.png') }}");
+      $('#pr-pause-icon').attr('class', 'icon icon-play pr-icon-ctrl');
     } else {
-      $('#pause-resume').removeClass('icon-play').addClass('icon-pause');
-      $('#pr-pause-icon').attr('class', 'icon icon-pause');
-      $('.playing_gif').attr('src', "{{ url_for('static', filename='images/now-playing.gif') }}");
+      $('#pr-pause-icon').attr('class', 'icon icon-pause pr-icon-ctrl');
     }
+  }
+
+  function formatTime(seconds) {
+    if (isNaN(seconds)) return '00:00';
+    var m = Math.floor(seconds / 60);
+    var s = Math.floor(seconds % 60);
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
   }
 
   function setVocalMode(mode) {
-    $.get('/vocal_mode/' + mode, function(data) {
+    $.get(window.SCRIPT_ROOT + '/vocal_mode/' + mode, function(data) {
       $('.pr-seg-opt').removeClass('active');
       $('#pr-vocal-' + data.vocal_mode).addClass('active');
-      ['mixed', 'nonvocal', 'vocal'].forEach(function(m) {
-        $('#vocal-' + m).removeClass('is-primary');
-      });
-      $('#vocal-' + data.vocal_mode).addClass('is-primary');
     });
   }
 
-  function togglePausePlayButton() {
-    if ($('#pause-resume').hasClass('icon-pause')) {
-      $('#pause-resume').removeClass('icon-pause').addClass('icon-play');
-      $('#pr-pause-icon').attr('class', 'icon icon-play');
-    } else {
-      $('#pause-resume').removeClass('icon-play').addClass('icon-pause');
-      $('#pr-pause-icon').attr('class', 'icon icon-pause');
-    }
-  }
-
   $(function() {
-    // Hide controls and video until song plays
+    // Hide controls until song plays
     $('.pr-controls-area').hide();
     $('.pr-next-block').hide();
     $('#pr-key-badge').hide();
-    $('#pr-video-panel').hide();
+    $('.pr-time-display').hide();
 
     // Volume slider
     $('#volume-slider').on('input', debounce(function() {
-      $.get('/volume/' + this.value);
-      var v = document.getElementById('pr-video');
-      if (v) v.volume = parseFloat(this.value);
-    }, 500));
+      $.get(window.SCRIPT_ROOT + '/volume/' + this.value);
+    }, 300));
 
-    // Transpose slider display update
+    // Transpose slider
     var slider = document.getElementById('transpose');
     var output = document.getElementById('semitones-label');
     if (slider && output) {
-      output.innerHTML = getSemitonesLabel(slider.value);
+      output.textContent = getSemitonesLabel(slider.value);
       slider.oninput = function() {
-        output.innerHTML = getSemitonesLabel(slider.value);
+        output.textContent = getSemitonesLabel(slider.value);
         $('#pr-key-val').text(slider.value > 0 ? '+' + slider.value : slider.value);
       };
     }
@@ -216,30 +145,32 @@
     $('#pr-key-apply').click(function() {
       var value = slider ? slider.value : 0;
       if (value != 0) {
-        var r = confirm('Transpose: ' + getSemitonesLabel(value) + '?');
-        if (r) { $.get('/transpose/' + value); }
+        if (confirm('Transpose: ' + getSemitonesLabel(value) + '?')) {
+          $.get(window.SCRIPT_ROOT + '/transpose/' + value);
+        }
       }
     });
 
     // Pause/play
-    $('#pause-resume, #pr-pause-btn').click(function() {
-      $.get('/pause');
-      togglePausePlayButton();
+    $('#pr-pause-btn').click(function() {
+      $.get(window.SCRIPT_ROOT + '/pause');
     });
 
     // Volume up/down
-    $('#vol-up, #pr-vol-up').click(function() { $.get('/vol_up'); });
-    $('#vol-down, #pr-vol-down').click(function() { $.get('/vol_down'); });
+    $('#pr-vol-up').click(function() { $.get(window.SCRIPT_ROOT + '/vol_up'); });
+    $('#pr-vol-down').click(function() { $.get(window.SCRIPT_ROOT + '/vol_down'); });
 
     // Restart
-    $('#restart, #pr-restart-btn').click(function() {
-      if (confirm('Restart this track?')) { $.get('/restart'); }
+    $('#pr-restart-btn').click(function() {
+      if (confirm('{{ _("Restart this track?") }}')) {
+        $.get(window.SCRIPT_ROOT + '/restart');
+      }
     });
 
     // Skip
-    $('#skip, #pr-skip-btn').click(function() {
-      if (confirm("{{ _('Are you sure you want to skip this track? If you didn\'t add this song, ask permission first!') }}")) {
-        $.get('/skip');
+    $('#pr-skip-btn').click(function() {
+      if (confirm("{{ _('Are you sure you want to skip this track?') }}")) {
+        $.get(window.SCRIPT_ROOT + '/skip');
       }
     });
 
@@ -248,14 +179,11 @@
     $('#pr-vocal-nonvocal').click(function() { setVocalMode('nonvocal'); });
     $('#pr-vocal-vocal').click(function() { setVocalMode('vocal'); });
 
-    // Set initial active vocal mode
-    $('#pr-vocal-{{ vocal_mode }}').addClass('active');
-
-    // Initial load + socket
+    // Initial load via HTTP, then live updates via WebSocket
     loadNowPlaying();
     window.socket.on('now_playing', function(np) { handleNowPlaying(np); });
 
-    // Reconnect on visibility change
+    // Reconnect on tab visibility change
     document.addEventListener('visibilitychange', function() {
       if (document.visibilityState === 'visible') {
         loadNowPlaying();
@@ -275,80 +203,8 @@
 <div class="pr-home-wrap">
   <div class="pr-grid">
 
-    <!-- ══ LEFT COLUMN ══ -->
+    <!-- Main Column -->
     <div class="pr-main-col">
-
-      <!-- Pitch Graph (PROTOTYPE) -->
-      <div class="pr-pitch-panel">
-        <div class="pr-pitch-header">
-          <div class="pr-pitch-title">
-            <i class="icon icon-music pr-icon-teal"></i> Pitch Graph
-            <span class="pr-proto-badge">PROTOTYPE</span>
-          </div>
-          <div class="pr-pitch-score-row">
-            <span>ACCURACY</span> 72%
-            <span>SCORE</span> 8,340
-          </div>
-        </div>
-
-        <div class="pr-pitch-graph">
-          <div class="pr-yaxis">
-            <span class="pr-ynote" style="top:0px">B5</span>
-            <span class="pr-ynote" style="top:36px">B4</span>
-            <span class="pr-ynote" style="top:72px">B3</span>
-            <span class="pr-ynote" style="top:108px">B2</span>
-          </div>
-          <div class="pr-playhead"></div>
-          <div class="pr-note hit"          style="top:33px;left:2%;width:7%"></div>
-          <div class="pr-note hit"          style="top:27px;left:12%;width:5%"></div>
-          <div class="pr-note miss"         style="top:21px;left:21%;width:4%"></div>
-          <div class="pr-note hit"          style="top:33px;left:27%;width:6%"></div>
-          <div class="pr-note current-note" style="top:27px;left:31%;width:7%"></div>
-          <div class="pr-note"             style="top:21px;left:42%;width:7%"></div>
-          <div class="pr-note"             style="top:12px;left:53%;width:5%"></div>
-          <div class="pr-note"             style="top:51px;left:62%;width:6%"></div>
-          <div class="pr-note"             style="top:42px;left:71%;width:5%"></div>
-          <div class="pr-note"             style="top:27px;left:79%;width:6%"></div>
-          <div class="pr-note"             style="top:63px;left:88%;width:4%"></div>
-          <div class="pr-note"             style="top:21px;left:95%;width:4%"></div>
-          <svg class="pr-pitch-svg" viewBox="0 0 700 108" preserveAspectRatio="none">
-            <polyline
-              points="14,34 70,34 84,28 119,22 140,34 189,34 217,28"
-              fill="none" stroke="rgba(0,210,255,0.9)" stroke-width="1.5"
-              stroke-linecap="round" stroke-linejoin="round"
-            />
-            <circle cx="245" cy="28" r="3.5" fill="#00d2ff" filter="url(#pr-glow)"/>
-            <defs>
-              <filter id="pr-glow" x="-80%" y="-80%" width="260%" height="260%">
-                <feGaussianBlur stdDeviation="2.5" result="b"/>
-                <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-              </filter>
-            </defs>
-          </svg>
-        </div>
-
-        <div class="pr-pitch-footer">
-          <div class="pr-score-labels">
-            <span class="lbl-miss">● Miss</span>
-            <span class="lbl-hit">● Good</span>
-            <span class="lbl-perf">● Perfect</span>
-          </div>
-          <div class="pr-score-track">
-            <div class="pr-score-fill" style="width:72%"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Video Player (shown when song is playing) -->
-      <div id="pr-video-panel" class="pr-video-panel" style="display:none">
-        <video id="pr-video"
-          playsinline
-          webkit-playsinline
-          disableRemotePlayback
-          poster="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-          style="width:100%;height:100%;object-fit:contain;display:block;border-radius:10px">
-        </video>
-      </div>
 
       <!-- Now Playing card -->
       <div class="pr-card pr-nowplaying">
@@ -357,8 +213,8 @@
             <i class="icon icon-music pr-icon-grad"></i>
           </div>
           <div class="pr-np-info">
-            <div class="pr-np-title" id="pr-np-title">Nothing playing</div>
-            <div class="pr-np-singer" id="pr-np-singer">Queue a song to get started</div>
+            <div class="pr-np-title" id="pr-np-title">{{ _("Nothing playing") }}</div>
+            <div class="pr-np-singer" id="pr-np-singer">{{ _("Queue a song to get started") }}</div>
           </div>
           <span id="pr-key-badge" class="pr-np-key-badge" style="display:none"></span>
           <span class="pr-np-live" style="display:none">
@@ -369,6 +225,10 @@
         <div class="pr-progress-wrap">
           <div class="pr-progress-track">
             <div class="pr-progress-fill" id="pr-progress-fill"></div>
+          </div>
+          <div class="pr-time-display" style="display:none;padding:2px 12px 0;font-family:var(--pr-mono);font-size:10px;color:var(--pr-dim);display:flex;justify-content:space-between">
+            <span id="pr-time-current">00:00</span>
+            <span id="pr-time-duration">00:00</span>
           </div>
         </div>
 
@@ -398,61 +258,46 @@
         <!-- Adjusters: vocal mode + key -->
         <div class="pr-adjusters pr-controls-area">
           <div>
-            <span class="pr-adj-label">VOCAL MODE</span>
+            <span class="pr-adj-label">{{ _("VOCAL MODE") }}</span>
             {% if vocal_splitter_enabled %}
             <div class="pr-seg">
-              <button id="pr-vocal-mixed"    class="pr-seg-opt {% if vocal_mode == 'mixed' %}active{% endif %}">Mixed</button>
-              <button id="pr-vocal-nonvocal" class="pr-seg-opt {% if vocal_mode == 'nonvocal' %}active{% endif %}">Instrumental</button>
-              <button id="pr-vocal-vocal"    class="pr-seg-opt {% if vocal_mode == 'vocal' %}active{% endif %}">Vocals Only</button>
+              <button id="pr-vocal-mixed"    class="pr-seg-opt {% if vocal_mode == 'mixed' %}active{% endif %}">{{ _("Mixed") }}</button>
+              <button id="pr-vocal-nonvocal" class="pr-seg-opt {% if vocal_mode == 'nonvocal' %}active{% endif %}">{{ _("Instrumental") }}</button>
+              <button id="pr-vocal-vocal"    class="pr-seg-opt {% if vocal_mode == 'vocal' %}active{% endif %}">{{ _("Vocals Only") }}</button>
             </div>
             {% else %}
-            <div style="font-size:11px;color:var(--pr-faint)">Vocal splitting not enabled</div>
+            <div style="font-size:11px;color:var(--pr-faint)">{{ _("Vocal splitting not enabled") }}</div>
             {% endif %}
           </div>
           {% if is_transpose_enabled %}
           <div class="pr-key-block">
-            <span class="pr-adj-label">KEY</span>
+            <span class="pr-adj-label">{{ _("KEY") }}</span>
             <div class="pr-key-row">
-              <button class="pr-key-btn" id="pr-key-minus">−</button>
+              <button class="pr-key-btn" id="pr-key-minus">&minus;</button>
               <span class="pr-key-val" id="pr-key-val">0</span>
               <button class="pr-key-btn" id="pr-key-plus">+</button>
-              <button class="pr-key-btn" id="pr-key-apply" style="font-size:10px;width:auto;padding:0 8px" title="Apply transpose">
+              <button class="pr-key-btn" id="pr-key-apply" style="font-size:10px;width:auto;padding:0 8px" title="{{ _('Apply transpose') }}">
                 <i class="icon icon-ok pr-icon-ctrl"></i>
               </button>
             </div>
+            <input type="range" id="transpose" min="-12" max="12" value="0" style="display:none">
+            <span id="semitones-label" style="display:none"></span>
           </div>
-          {% endif %}
-        </div>
-
-        <!-- Hidden original controls for JS compat -->
-        <div style="display:none">
-          <a id="restart"></a>
-          <a id="skip"></a>
-          <i id="pause-resume" class="icon-pause"></i>
-          <i id="vol-up"></i>
-          <i id="vol-down"></i>
-          <input type="range" id="transpose" min="-12" max="12" value="0">
-          <span id="semitones-label"></span>
-          <button id="submit-transpose"></button>
-          {% if vocal_splitter_enabled %}
-          <button id="vocal-mixed" class="{% if vocal_mode == 'mixed' %}is-primary{% endif %}"></button>
-          <button id="vocal-nonvocal" class="{% if vocal_mode == 'nonvocal' %}is-primary{% endif %}"></button>
-          <button id="vocal-vocal" class="{% if vocal_mode == 'vocal' %}is-primary{% endif %}"></button>
           {% endif %}
         </div>
       </div>
 
-    </div><!-- /left col -->
+    </div>
 
-    <!-- ══ RIGHT SIDEBAR ══ -->
+    <!-- Right Sidebar -->
     <div class="pr-sidebar">
 
       <!-- Next Up -->
       <div class="pr-card pr-next-block">
-        <div class="pr-panel-title">Up Next</div>
+        <div class="pr-panel-title">{{ _("Up Next") }}</div>
         <div class="pr-next-inner">
-          <div class="pr-next-label">Next song</div>
-          <div class="pr-next-track" id="pr-next-track">—</div>
+          <div class="pr-next-label">{{ _("Next song") }}</div>
+          <div class="pr-next-track" id="pr-next-track">&mdash;</div>
           <div class="pr-next-singer" id="pr-next-singer"></div>
         </div>
       </div>
@@ -460,23 +305,23 @@
       <!-- Quick queue -->
       <div class="pr-card">
         <div class="pr-panel-title">
-          Queue
+          {{ _("Queue") }}
           <span class="pr-panel-count">
-            <a href="{{ url_for('queue.queue') }}" style="color:var(--pr-teal);text-decoration:none;font-size:10px">View all →</a>
+            <a href="{{ url_for('queue.queue') }}" style="color:var(--pr-teal);text-decoration:none;font-size:10px">{{ _("View all") }} &rarr;</a>
           </span>
         </div>
         <div id="pr-queue-list">
           <div class="pr-q-item now">
             <span class="pr-q-num"><i class="icon icon-play pr-icon-teal" style="font-size:10px"></i></span>
             <div class="pr-q-info">
-              <div class="pr-q-track" id="pr-q-current">—</div>
+              <div class="pr-q-track" id="pr-q-current">&mdash;</div>
               <div class="pr-q-singer" id="pr-q-current-singer"></div>
             </div>
           </div>
           <div class="pr-q-item">
             <span class="pr-q-num">2</span>
             <div class="pr-q-info">
-              <div class="pr-q-track" id="pr-q-next">—</div>
+              <div class="pr-q-track" id="pr-q-next">&mdash;</div>
               <div class="pr-q-singer" id="pr-q-next-singer"></div>
             </div>
           </div>
@@ -484,7 +329,7 @@
         <div style="padding:8px 12px 10px;border-top:1px solid var(--pr-border)">
           <a href="{{ url_for('search.search') }}"
              style="display:block;text-align:center;padding:7px;border-radius:9px;background:var(--pr-grad);color:#fff;font-size:12px;font-weight:700;text-decoration:none;box-shadow:var(--pr-glow-p)">
-            <i class="icon icon-plus"></i> Add Song
+            <i class="icon icon-plus"></i> {{ _("Add Song") }}
           </a>
         </div>
       </div>
@@ -492,7 +337,7 @@
       <!-- QR code -->
       {% if qr_code_url %}
       <div class="pr-card">
-        <div class="pr-panel-title">Join from Phone</div>
+        <div class="pr-panel-title">{{ _("Join from Phone") }}</div>
         <div style="text-align:center;padding:10px">
           <img src="{{ qr_code_url }}" alt="QR Code" style="width:100%;max-width:140px;border-radius:8px;opacity:0.85">
           <div style="font-family:var(--pr-mono);font-size:10px;color:var(--pr-faint);margin-top:6px">
@@ -502,23 +347,7 @@
       </div>
       {% endif %}
 
-    </div><!-- /sidebar -->
-  </div><!-- /pr-grid -->
+    </div>
+  </div>
 </div>
-
-<!-- Sync sidebar with now_playing socket data -->
-<script>
-$(function() {
-  window.socket.on('now_playing', function(np) {
-    if (np.now_playing) {
-      $('#pr-q-current').text(np.now_playing);
-      $('#pr-q-current-singer').text(np.now_playing_user || '');
-    }
-    if (np.up_next) {
-      $('#pr-q-next').text(np.up_next);
-      $('#pr-q-next-singer').text(np.next_user || '');
-    }
-  });
-});
-</script>
 {% endblock %}
