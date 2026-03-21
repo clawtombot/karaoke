@@ -134,8 +134,9 @@ class PlaybackController:
 
         Called by Flask route when client connects to stream.
         Idempotent - safe to call multiple times.
+        Ignores stale calls when no song is queued.
         """
-        if not self.is_playing:
+        if not self.is_playing and self.now_playing is not None:
             logging.info(f"Song starting: {self.now_playing}")
             self.is_playing = True
 
