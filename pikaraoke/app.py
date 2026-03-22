@@ -91,6 +91,16 @@ app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0  # No cache during development
 
+
+@app.after_request
+def add_no_cache_for_js(response):
+    """Prevent browser from caching JS files so code changes take effect immediately."""
+    if request.path.endswith(".js"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
 # Only expose the Swagger UI when --enable-swagger is passed.
 from flask_smorest import Api
@@ -265,7 +275,13 @@ def main() -> None:
 
     spawn(upgrade_youtubedl)
 
-    server = WSGIServer(("0.0.0.0", int(args.port)), app, handler_class=WebSocketHandler, log=None, error_log=logging.getLogger())
+    server = WSGIServer(
+        ("0.0.0.0", int(args.port)),
+        app,
+        handler_class=WebSocketHandler,
+        log=None,
+        error_log=logging.getLogger(),
+    )
     server.start()
 
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling

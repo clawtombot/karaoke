@@ -964,7 +964,11 @@ $(function () {
 
   // Handle browser compatibility
   handleUnsupportedBrowser();
-  testAutoplayCapability();
+  if (new URLSearchParams(window.location.search).has('autoplay')) {
+    handleConfirmation();
+  } else {
+    testAutoplayCapability();
+  }
 });
 
 

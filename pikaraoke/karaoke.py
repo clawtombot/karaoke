@@ -260,6 +260,7 @@ class Karaoke:
         self.download_manager.start()
 
         # Stem splitter setup
+        self.boot_id = str(int(time.time()))
         self.stem_mix = {s: True for s in STEM_NAMES}
         if vocal_splitter:
             self._init_stem_splitter()
