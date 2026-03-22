@@ -104,14 +104,14 @@
 	</span>
 	{% if admin %}
 	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Edit all songs"
-		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Edit all songs{%
+		><i class="ti ti-pencil"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Edit all songs{%
 		endtrans %}</a
 	>
 	{% endif%}
 </p>
 
 <div id="alpha-bar" class="column is-full has-background-dark mobile-hide">
-	<a href="{{ url_for('files.browse') }}" title="Show all"><i class="icon icon-list-bullet"></i></a>
+	<a href="{{ url_for('files.browse') }}" title="Show all"><i class="ti ti-list"></i></a>
 	<a href="{{ url_for('files.browse') }}?letter=numeric">#</a>
 	{% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
 	'u', 'v', 'w', 'x', 'y', 'z'] %}
@@ -130,7 +130,7 @@
 				class="add-song-link has-text-weight-bold has-text-success"
 				title="Add '{{display_name}}' to queue"
 				href="{{url_for('queue.enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
-				><i class="icon icon-list-add"></i>
+				><i class="ti ti-plus"></i>
 			</a>
 		</td>
 		<td class="break-word" style="padding-right: 0">{{display_name}}</td>
@@ -140,7 +140,7 @@
 				class="edit-button"
 				href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&referrer={{url_escape(current_url)}}"
 				title="Edit song"
-				><i class="icon icon-edit-1"></i>
+				><i class="ti ti-pencil"></i>
 			</a>
 		</td>
 		{% endif %} {% endfor %}

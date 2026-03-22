@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='prisma.css') }}">
   <link rel="icon" type="image/png" href="{{  url_for('static', filename='images/microphone.png') }}">
-  <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}?v=2">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
 
   <script>
     // Reverse-proxy prefix (empty string when running standalone)
@@ -153,8 +153,8 @@
 </head>
 
 <style>
-  .navbar-item > i {
-    margin-right: 2px;
+  .navbar-item .ti {
+    font-size: 1.15em;
   }
   .base-notification {
     position: fixed;
@@ -197,27 +197,27 @@
 <body>
 
   {% if not blank_page %}
-  <div class="container" style="padding: 2px 8px; max-width: 1040px;">
+  <div class="container" style="padding: 6px 16px; max-width: 1040px;">
     <nav class="navbar" role="navigation" aria-label="main navigation">
       <div class="navbar-brand" id="brand" style="padding-left: 10px">
         <a id="home" class="navbar-item" href="{{ url_for('home.home') }}">
-          <i class="icon icon-home-2" title="Home"></i>
+          <i class="ti ti-home-2" title="Home"></i>
           {# MSG: Navigation link for the home page. #}
           <span>{% trans %}Home{% endtrans %}</span>
         </a>
 
         <a id="queue" class="navbar-item" href="{{ url_for('queue.queue') }}">
-          <i class="icon icon-list-numbered" title="Queue"></i>
+          <i class="ti ti-list-numbers" title="Queue"></i>
           {# MSG: Navigation link for the queue page. #}
           <span>{% trans %}Queue{% endtrans %}</span>
         </a>
         <a id="search" class="navbar-item" href="{{ url_for('search.search') }}">
-          <i class="icon icon-search-1" title="Search"></i>
+          <i class="ti ti-search" title="Search"></i>
           {# MSG: Navigation link for the search page add songs to the queue. #}
           <span>{% trans %}Search{% endtrans %}</span>
         </a>
         <a id="browse" class="navbar-item" href="{{ url_for('files.browse') }}">
-          <i class="icon icon-folder-open-empty" title="Browse"></i>
+          <i class="ti ti-folder-open" title="Browse"></i>
           {# MSG: Navigation link for the page where the user can add existing songs to the queue. #}
           <span>{% trans %}Browse{% endtrans %}</span>
         </a>
@@ -230,11 +230,11 @@
       <div class="navbar-menu" id="menu">
         <div class="navbar-end">
           <a id="current-user" class="navbar-item is-hidden" href="#">
-            <i class="icon  icon-mic-1" title="Current user"></i>
+            <i class="ti ti-microphone-2" title="Current user"></i>
             <span></span>
           </a>
           <a id="info" class="navbar-item" href="{{ url_for('info.info') }}">
-            <i class="icon icon-info-circled-1" title="Info"></i>
+            <i class="ti ti-info-circle" title="Info"></i>
             <span>{{ site_title }}</span>&nbsp;&nbsp;
           </a>
         </div>

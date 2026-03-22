@@ -32,6 +32,9 @@
 /* ── Reset & Base ────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
+/* ── Tabler Icons tuning ────────────────────────────────────────────── */
+.ti { vertical-align: middle; }
+
 html, body {
   background: var(--pr-bg) !important;
   color: var(--pr-text) !important;
@@ -63,7 +66,7 @@ body::after {
 .container {
   position: relative; z-index: 1;
   max-width: 1000px !important;
-  padding: 2px 12px 16px !important;
+  padding: 6px 16px 20px !important;
 }
 
 /* ── Navbar ──────────────────────────────────────────────────────────── */
@@ -77,7 +80,7 @@ body::after {
   position: sticky; top: 2px; z-index: 100;
 }
 
-.navbar-brand { align-items: center; gap: 2px; }
+.navbar-brand { align-items: center; gap: 6px; }
 
 .navbar-brand > .navbar-item,
 .navbar-menu .navbar-item {
@@ -86,7 +89,7 @@ body::after {
   font-weight: 600 !important;
   font-size: 13px !important;
   border-radius: 8px !important;
-  padding: 6px 12px !important;
+  padding: 8px 14px !important;
   transition: all 0.2s !important;
   border: 1px solid transparent !important;
 }
@@ -239,7 +242,7 @@ td { border-color: var(--pr-border) !important; }
    ══════════════════════════════════════════════════════════════════════ */
 
 /* Override box padding for home page */
-.pr-home-wrap { padding: 12px; }
+.pr-home-wrap { padding: 16px; }
 
 /* 2-column grid */
 .pr-grid {
@@ -468,10 +471,10 @@ td { border-color: var(--pr-border) !important; }
   animation: pr-neon-pulse 3s ease-in-out infinite;
 }
 .pr-np-inner {
-  padding: 14px;
+  padding: 18px 20px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 .pr-np-icon {
   width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
@@ -526,7 +529,7 @@ td { border-color: var(--pr-border) !important; }
 @keyframes pr-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
 /* ── Progress bar ────────────────────────────────────────────────────── */
-.pr-progress-wrap { padding: 0 14px 12px; }
+.pr-progress-wrap { padding: 0 20px 14px; }
 .pr-progress-track {
   height: 4px;
   background: rgba(255,255,255,0.1);
@@ -555,8 +558,8 @@ td { border-color: var(--pr-border) !important; }
 .pr-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px 12px;
+  gap: 10px;
+  padding: 12px 20px 14px;
   border-top: 1px solid var(--pr-border);
 }
 
@@ -594,8 +597,8 @@ td { border-color: var(--pr-border) !important; }
 .pr-adjusters {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 10px;
-  padding: 10px 14px 14px;
+  gap: 12px;
+  padding: 12px 20px 16px;
   border-top: 1px solid var(--pr-border);
 }
 
@@ -639,7 +642,7 @@ td { border-color: var(--pr-border) !important; }
   gap: 4px;
 }
 .pr-stem-btn {
-  padding: 6px 4px;
+  padding: 7px 8px;
   border-radius: 7px;
   font-size: 10px; font-weight: 600;
   font-family: var(--pr-display);
@@ -662,9 +665,10 @@ td { border-color: var(--pr-border) !important; }
   color: var(--pr-text);
   opacity: 1;
 }
-.pr-stem-btn i {
-  font-size: 9px;
-  margin-right: 2px;
+.pr-stem-btn .ti {
+  font-size: 12px;
+  margin-right: 3px;
+  vertical-align: -1px;
 }
 
 /* Transpose */
@@ -692,7 +696,7 @@ td { border-color: var(--pr-border) !important; }
   font-size: 11px; font-weight: 700;
   color: var(--pr-faint);
   letter-spacing: 0.1em; text-transform: uppercase;
-  padding: 10px 12px 8px;
+  padding: 12px 14px 10px;
   display: flex; align-items: center; justify-content: space-between;
   border-bottom: 1px solid var(--pr-border);
 }
@@ -702,8 +706,8 @@ td { border-color: var(--pr-border) !important; }
 
 /* Queue items */
 .pr-q-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 7px 12px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px;
   border-bottom: 1px solid rgba(255,255,255,0.04);
   transition: background 0.15s;
 }
@@ -724,7 +728,7 @@ td { border-color: var(--pr-border) !important; }
 .pr-q-singer { font-size: 10px; color: var(--pr-dim); font-family: var(--pr-mono); }
 
 /* Next up section */
-.pr-next-inner { padding: 10px 12px; }
+.pr-next-inner { padding: 12px 14px; }
 .pr-next-label {
   font-family: var(--pr-mono); font-size: 9px; color: var(--pr-faint);
   letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px;
@@ -791,18 +795,20 @@ td { border-color: var(--pr-border) !important; }
 }
 /* Control button icons — styled teal by default */
 .pr-ctrl-btn .pr-icon-ctrl,
-.pr-ctrl-btn .icon.pr-icon-ctrl {
+.pr-ctrl-btn .ti.pr-icon-ctrl {
   color: var(--pr-teal);
-  font-size: 1.1em;
+  font-size: 1.2em;
   line-height: 1;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .pr-ctrl-btn.primary .pr-icon-ctrl,
-.pr-ctrl-btn.primary .icon.pr-icon-ctrl {
+.pr-ctrl-btn.primary .ti.pr-icon-ctrl {
   color: #fff;
 }
 .pr-ctrl-btn.danger .pr-icon-ctrl,
-.pr-ctrl-btn.danger .icon.pr-icon-ctrl {
+.pr-ctrl-btn.danger .ti.pr-icon-ctrl {
   color: var(--pr-pink);
 }
 /* Key apply checkmark — teal */
@@ -811,8 +817,9 @@ td { border-color: var(--pr-border) !important; }
   font-size: 0.9em;
 }
 /* Now-playing icon cell */
-.pr-np-icon .icon {
-  font-size: 1.6rem;
+.pr-np-icon .ti {
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
 /* ── Video Panel ─────────────────────────────────────────────────────── */
@@ -851,10 +858,10 @@ td { border-color: var(--pr-border) !important; }
 /* ── Adjusters visible when active ──────────────────────────────────── */
 .pr-adjusters {
   margin-top: 10px;
-  padding-top: 10px;
+  padding-top: 12px;
   border-top: 1px solid var(--pr-border);
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 14px;
   align-items: flex-start;
 }

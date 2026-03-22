@@ -18,7 +18,7 @@
     if (np.now_playing) {
       $('#pr-np-title').text(np.now_playing);
       $('#pr-np-singer').empty()
-        .append($('<i>').addClass('icon icon-mic-1'))
+        .append($('<i>').addClass('ti ti-microphone-2'))
         .append(' ' + (np.now_playing_user || ''));
 
       if (np.now_playing_transpose != 0) {
@@ -54,7 +54,7 @@
     if (np.up_next) {
       $('#pr-next-track').text(np.up_next);
       $('#pr-next-singer').empty()
-        .append($('<i>').addClass('icon icon-mic-1'))
+        .append($('<i>').addClass('ti ti-microphone-2'))
         .append(' ' + (np.next_user || ''));
       $('.pr-next-block').show();
     } else {
@@ -86,9 +86,9 @@
 
     // Pause/play icon
     if (np.is_paused) {
-      $('#pr-pause-icon').attr('class', 'icon icon-play pr-icon-ctrl');
+      $('#pr-pause-icon').attr('class', 'ti ti-player-play pr-icon-ctrl');
     } else {
-      $('#pr-pause-icon').attr('class', 'icon icon-pause pr-icon-ctrl');
+      $('#pr-pause-icon').attr('class', 'ti ti-player-pause pr-icon-ctrl');
     }
 
     // Stem mix buttons
@@ -258,7 +258,7 @@
       <div class="pr-card pr-nowplaying">
         <div class="pr-np-inner">
           <div class="pr-np-icon" id="pr-np-icon">
-            <i class="icon icon-music pr-icon-grad"></i>
+            <i class="ti ti-music pr-icon-grad"></i>
           </div>
           <div class="pr-np-info">
             <div class="pr-np-title" id="pr-np-title">{{ _("Nothing playing") }}</div>
@@ -283,22 +283,22 @@
         <!-- Playback controls -->
         <div class="pr-controls pr-controls-area">
           <a class="pr-ctrl-btn" id="pr-restart-btn" title="{{ _('Restart Song') }}">
-            <i class="icon icon-to-start pr-icon-ctrl"></i>
+            <i class="ti ti-player-skip-back pr-icon-ctrl"></i>
           </a>
           <a class="pr-ctrl-btn primary" id="pr-pause-btn" title="{{ _('Play/Pause') }}">
-            <i class="icon icon-pause pr-icon-ctrl" id="pr-pause-icon"></i>
+            <i class="ti ti-player-pause pr-icon-ctrl" id="pr-pause-icon"></i>
           </a>
           <a class="pr-ctrl-btn danger" id="pr-skip-btn" title="{{ _('Skip Song') }}">
-            <i class="icon icon-to-end pr-icon-ctrl"></i>
+            <i class="ti ti-player-skip-forward pr-icon-ctrl"></i>
           </a>
           <div class="pr-vol-section">
             <a class="pr-ctrl-btn" id="pr-vol-down" style="width:30px;height:30px;font-size:14px" title="{{ _('Volume Down') }}">
-              <i class="icon icon-volume-down pr-icon-ctrl"></i>
+              <i class="ti ti-volume pr-icon-ctrl"></i>
             </a>
             <input type="range" min="0" max="1" value="{{ volume|default(0.85) }}" step="0.025"
               id="volume-slider" style="width:80px;accent-color:#00d2ff">
             <a class="pr-ctrl-btn" id="pr-vol-up" style="width:30px;height:30px;font-size:14px" title="{{ _('Volume Up') }}">
-              <i class="icon icon-volume-up pr-icon-ctrl"></i>
+              <i class="ti ti-volume-2 pr-icon-ctrl"></i>
             </a>
           </div>
         </div>
@@ -310,12 +310,12 @@
             {% if vocal_splitter_enabled %}
             <div class="pr-stems-ready" style="display:none">
               <div class="pr-stem-grid">
-                <button id="pr-stem-drums"  class="pr-stem-btn active" data-stem="drums"  title="Drums"><i class="icon icon-music"></i> {{ _("Drums") }}</button>
-                <button id="pr-stem-bass"   class="pr-stem-btn active" data-stem="bass"   title="Bass"><i class="icon icon-music"></i> {{ _("Bass") }}</button>
-                <button id="pr-stem-other"  class="pr-stem-btn active" data-stem="other"  title="Other"><i class="icon icon-music"></i> {{ _("Other") }}</button>
-                <button id="pr-stem-vocals" class="pr-stem-btn active" data-stem="vocals" title="Vocals"><i class="icon icon-mic-1"></i> {{ _("Vocals") }}</button>
-                <button id="pr-stem-guitar" class="pr-stem-btn active" data-stem="guitar" title="Guitar"><i class="icon icon-music"></i> {{ _("Guitar") }}</button>
-                <button id="pr-stem-piano"  class="pr-stem-btn active" data-stem="piano"  title="Piano"><i class="icon icon-music"></i> {{ _("Piano") }}</button>
+                <button id="pr-stem-drums"  class="pr-stem-btn active" data-stem="drums"  title="Drums"><i class="ti ti-music"></i> {{ _("Drums") }}</button>
+                <button id="pr-stem-bass"   class="pr-stem-btn active" data-stem="bass"   title="Bass"><i class="ti ti-music"></i> {{ _("Bass") }}</button>
+                <button id="pr-stem-other"  class="pr-stem-btn active" data-stem="other"  title="Other"><i class="ti ti-music"></i> {{ _("Other") }}</button>
+                <button id="pr-stem-vocals" class="pr-stem-btn active" data-stem="vocals" title="Vocals"><i class="ti ti-microphone-2"></i> {{ _("Vocals") }}</button>
+                <button id="pr-stem-guitar" class="pr-stem-btn active" data-stem="guitar" title="Guitar"><i class="ti ti-music"></i> {{ _("Guitar") }}</button>
+                <button id="pr-stem-piano"  class="pr-stem-btn active" data-stem="piano"  title="Piano"><i class="ti ti-music"></i> {{ _("Piano") }}</button>
               </div>
             </div>
             <div class="pr-stems-pending" style="font-size:11px;color:var(--pr-faint)">{{ _("Stems processing...") }}</div>
@@ -331,7 +331,7 @@
               <span class="pr-key-val" id="pr-key-val">0</span>
               <button class="pr-key-btn" id="pr-key-plus">+</button>
               <button class="pr-key-btn" id="pr-key-apply" style="font-size:10px;width:auto;padding:0 8px" title="{{ _('Apply transpose') }}">
-                <i class="icon icon-ok pr-icon-ctrl"></i>
+                <i class="ti ti-check pr-icon-ctrl"></i>
               </button>
             </div>
             <input type="range" id="transpose" min="-12" max="12" value="0" style="display:none">
@@ -366,7 +366,7 @@
         </div>
         <div id="pr-queue-list">
           <div class="pr-q-item now">
-            <span class="pr-q-num"><i class="icon icon-play pr-icon-teal" style="font-size:10px"></i></span>
+            <span class="pr-q-num"><i class="ti ti-player-play pr-icon-teal" style="font-size:10px"></i></span>
             <div class="pr-q-info">
               <div class="pr-q-track" id="pr-q-current">&mdash;</div>
               <div class="pr-q-singer" id="pr-q-current-singer"></div>
@@ -383,7 +383,7 @@
         <div style="padding:8px 12px 10px;border-top:1px solid var(--pr-border)">
           <a href="{{ url_for('search.search') }}"
              style="display:block;text-align:center;padding:7px;border-radius:9px;background:var(--pr-grad);color:#fff;font-size:12px;font-weight:700;text-decoration:none;box-shadow:var(--pr-glow-p)">
-            <i class="icon icon-plus"></i> {{ _("Add Song") }}
+            <i class="ti ti-plus"></i> {{ _("Add Song") }}
           </a>
         </div>
       </div>
@@ -393,7 +393,7 @@
         <div style="padding:8px 12px 10px">
           <a href="{{ url_for('splash.splash') }}" target="_blank"
              style="display:block;text-align:center;padding:7px;border-radius:9px;background:var(--pr-surface);color:var(--pr-teal);font-size:12px;font-weight:700;text-decoration:none;border:1px solid var(--pr-border)">
-            <i class="icon icon-play"></i> {{ _("Open Splash Screen") }}
+            <i class="ti ti-player-play"></i> {{ _("Open Splash Screen") }}
           </a>
         </div>
       </div>

@@ -30,7 +30,7 @@
 <script src="{{ url_for('static', filename='js/splash.js') }}?b={{ config.get('BOOT_ID', '') }}"></script>
 {% endblock %} {% block body %}
 <div id="top-container" class="overlay">
-<i class="icon icon-mic-1 is-invisible" style="position: absolute" title="Current singer"></i>
+<i class="ti ti-microphone-2 is-invisible" style="position: absolute" title="Current singer"></i>
   <div
     id="now-playing"
     class="has-text-warning stroke is-size-4 has-text-right"
@@ -42,7 +42,7 @@
       style="margin-bottom: 5px"
     ></p>
     <div class="has-text-success">
-      <i class="icon icon-mic-1" title="Current singer"></i>
+      <i class="ti ti-microphone-2" title="Current singer"></i>
       <span id="now-playing-singer"></span>
       <br />
       <span class="timestamp is-size-6">
@@ -95,7 +95,7 @@
       <b class="has-text-white"
         >{# MSG: Label for the next singer in the queue. #}
         {% trans %}Next singer:{% endtrans %} </b
-      >&nbsp;<i class="icon icon-mic-1" title="Next singer"></i
+      >&nbsp;<i class="ti ti-microphone-2" title="Next singer"></i
       ><span id="up-next-singer"></span>
     </div>
   </div>
