@@ -14,6 +14,7 @@ import qrcode
 from flask_babel import _
 from qrcode.image.pure import PyPNGImage
 
+from pikaraoke.constants import STEM_NAMES, STEMS_SUBDIR, stems_complete
 from pikaraoke.lib.download_manager import DownloadManager
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import (
@@ -21,7 +22,6 @@ from pikaraoke.lib.ffmpeg import (
     is_transpose_enabled,
     supports_hardware_h264_encoding,
 )
-from pikaraoke.constants import STEM_NAMES, STEMS_SUBDIR, stems_complete
 from pikaraoke.lib.get_platform import (
     get_data_directory,
     get_os_version,
@@ -526,6 +526,7 @@ class Karaoke:
         # Build stem URLs for the currently playing file (cached to avoid repeated stat calls)
         stem_urls = None
         stems_available = False
+        stem_progress = None  # {ready: N, total: 6, error: bool}
         now_file = self.playback_controller.now_playing_filename
         if self.vocal_splitter_enabled and now_file:
             cache = getattr(self, "_stem_url_cache", (None, None, None))
@@ -536,11 +537,34 @@ class Karaoke:
                 if stem_paths:
                     stems_available = True
                     basename = os.path.basename(now_file)
-                    stem_urls = {
-                        name: f"/stems/{basename}/{name}.m4a"
-                        for name in STEM_NAMES
-                    }
-                self._stem_url_cache = (now_file, stems_available, stem_urls)
+                    stem_urls = {name: f"/stems/{basename}/{name}.m4a" for name in STEM_NAMES}
+                # Only cache when stems are fully available
+                if stems_available:
+                    self._stem_url_cache = (now_file, stems_available, stem_urls)
+
+            # Report progress when stems aren't ready yet
+            if not stems_available:
+                basename = os.path.basename(now_file)
+                stem_dir = os.path.join(
+                    self.download_path,
+                    STEMS_SUBDIR,
+                    basename,
+                )
+                total = len(STEM_NAMES)
+                ready = 0
+                has_error = False
+                if os.path.isdir(stem_dir):
+                    has_error = os.path.isfile(
+                        os.path.join(stem_dir, ".error"),
+                    )
+                    ready = sum(
+                        1 for s in STEM_NAMES if os.path.isfile(os.path.join(stem_dir, f"{s}.m4a"))
+                    )
+                stem_progress = {
+                    "ready": ready,
+                    "total": total,
+                    "error": has_error,
+                }
 
         return {
             **playback_state,
@@ -551,6 +575,8 @@ class Karaoke:
             "stems_available": stems_available,
             "stem_urls": stem_urls,
             "stem_mix": self.stem_mix,
+            "stem_progress": stem_progress,
+            "boot_id": self.boot_id,
         }
 
     def update_now_playing_socket(self) -> None:

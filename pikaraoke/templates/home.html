@@ -99,9 +99,33 @@
     if (np.stems_available) {
       $('.pr-stems-ready').show();
       $('.pr-stems-pending').hide();
-    } else if (np.vocal_splitter_enabled) {
+      if (window._stemPollTimer) {
+        clearInterval(window._stemPollTimer);
+        window._stemPollTimer = null;
+      }
+    } else if (np.vocal_splitter_enabled && np.now_playing) {
       $('.pr-stems-ready').hide();
-      $('.pr-stems-pending').show();
+      var pendingEl = $('.pr-stems-pending');
+      if (np.stem_progress) {
+        if (np.stem_progress.error) {
+          pendingEl.text("Stem splitting failed");
+        } else {
+          pendingEl.text("Splitting stems... " + np.stem_progress.ready + "/" + np.stem_progress.total);
+        }
+      } else {
+        pendingEl.text("Stems processing...");
+      }
+      pendingEl.show();
+      // Poll for stem availability while processing (stop if error)
+      if (!window._stemPollTimer && !(np.stem_progress && np.stem_progress.error)) {
+        window._stemPollTimer = setInterval(function() {
+          loadNowPlaying();
+        }, 5000);
+      }
+      if (np.stem_progress && np.stem_progress.error && window._stemPollTimer) {
+        clearInterval(window._stemPollTimer);
+        window._stemPollTimer = null;
+      }
     }
   }
 

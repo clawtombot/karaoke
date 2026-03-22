@@ -30,11 +30,18 @@ logger = logging.getLogger(__name__)
 # FFmpeg helpers
 # ---------------------------------------------------------------------------
 
+
 def _ffmpeg_wav_to_m4a(input_path: str, output_path: str, bitrate: str = "128k") -> bool:
     """Encode a WAV file to AAC/M4A."""
     cmd = [
-        "ffmpeg", "-y", "-i", input_path,
-        "-c:a", "aac", "-b:a", bitrate,
+        "ffmpeg",
+        "-y",
+        "-i",
+        input_path,
+        "-c:a",
+        "aac",
+        "-b:a",
+        bitrate,
         output_path,
     ]
     result = subprocess.run(cmd, capture_output=True)
@@ -44,6 +51,7 @@ def _ffmpeg_wav_to_m4a(input_path: str, output_path: str, bitrate: str = "128k")
 # ---------------------------------------------------------------------------
 # Demucs-MLX 6-stem separation (Apple Silicon GPU via Metal/MLX)
 # ---------------------------------------------------------------------------
+
 
 def split_demucs_6s(input_path: str, stem_dir: str, separator) -> bool:
     """Separate audio into 6 stems using demucs-mlx htdemucs_6s."""
@@ -70,12 +78,14 @@ def split_demucs_6s(input_path: str, stem_dir: str, separator) -> bool:
 # Model loader
 # ---------------------------------------------------------------------------
 
+
 def load_separator():
     """Load demucs-mlx htdemucs_6s separator for Apple Silicon."""
     try:
         from demucs_mlx import Separator
-        sep = Separator(model="htdemucs_6s")
-        logger.info("Demucs-MLX htdemucs_6s loaded (Apple Silicon GPU via Metal)")
+
+        sep = Separator(model="htdemucs_6s", batch_size=2)
+        logger.info("Demucs-MLX htdemucs_6s loaded (batch_size=2, Apple Silicon GPU via Metal)")
         return sep
     except ImportError:
         logger.error("demucs-mlx not installed. Stem splitting requires demucs-mlx.")
@@ -89,6 +99,16 @@ def load_separator():
 # Worker loop
 # ---------------------------------------------------------------------------
 
+
+def _is_temp_file(basename: str) -> bool:
+    """Return True if the file is a yt-dlp intermediate/temp file."""
+    return (
+        ".part" in basename
+        or ".temp." in basename
+        or ".f1" in basename  # format fragments like .f137.mp4, .f140.m4a
+    )
+
+
 def _get_pending_songs(download_path: str) -> list[str]:
     """Return basenames of songs not yet fully processed into stems."""
     stems_base = os.path.join(download_path, STEMS_SUBDIR)
@@ -96,6 +116,9 @@ def _get_pending_songs(download_path: str) -> list[str]:
 
     for bn in os.listdir(download_path):
         if bn.startswith(".") or not os.path.isfile(os.path.join(download_path, bn)):
+            continue
+
+        if _is_temp_file(bn):
             continue
 
         stem_dir = os.path.join(stems_base, bn)
@@ -111,55 +134,101 @@ def _get_pending_songs(download_path: str) -> list[str]:
     return pending
 
 
-def run_worker(download_path: str, **_kwargs) -> None:
-    """Main worker loop. Processes songs into 6 stems as they appear."""
-    logging.basicConfig(level=logging.INFO, format="[stem-splitter] %(levelname)s %(message)s")
-    logger.info("Starting stem splitter worker (download_path=%s)", download_path)
+def _process_one(download_path: str, basename: str) -> bool:
+    """Process a single song: separate stems and encode to M4A.
+
+    Designed to run in a short-lived subprocess so all Metal/MLX GPU memory
+    is fully released when the process exits.
+
+    Returns True on success, False on failure.
+    """
+    stems_base = os.path.join(download_path, STEMS_SUBDIR)
+    src = os.path.join(download_path, basename)
+    stem_dir = os.path.join(stems_base, basename)
+    os.makedirs(stem_dir, exist_ok=True)
+
+    if not os.path.isfile(src):
+        logger.warning("Source file gone, skipping: %s", basename)
+        return False
 
     separator = load_separator()
     if separator is None:
-        logger.error("Cannot start stem splitter: no separator available")
-        return
+        logger.error("Cannot load separator")
+        return False
+
+    success = split_demucs_6s(src, stem_dir, separator)
+    if not success:
+        logger.error("Separation failed for %s", basename)
+        Path(stem_dir, ".error").touch()
+        return False
+
+    # Encode each WAV stem to M4A
+    all_encoded = True
+    for name in STEM_NAMES:
+        wav_path = os.path.join(stem_dir, f"{name}.wav")
+        m4a_path = os.path.join(stem_dir, f"{name}.m4a")
+        if os.path.exists(wav_path):
+            if _ffmpeg_wav_to_m4a(wav_path, m4a_path):
+                os.remove(wav_path)
+                logger.info("Encoded %s stem to M4A", name)
+            else:
+                logger.error("Failed to encode %s to M4A", name)
+                all_encoded = False
+
+    if not all_encoded:
+        Path(stem_dir, ".error").touch()
+        return False
+
+    logger.info("All stems ready for: %s", basename)
+    return True
+
+
+def run_worker(download_path: str, **_kwargs) -> None:
+    """Main worker loop. Polls for pending songs and spawns a subprocess per song.
+
+    Each song is processed in its own subprocess so that Metal/MLX GPU memory
+    is fully released when processing completes (the OS reclaims all memory
+    when the child exits).
+    """
+    import sys
+
+    logging.basicConfig(level=logging.INFO, format="[stem-splitter] %(levelname)s %(message)s")
+    logger.info("Starting stem splitter worker (download_path=%s)", download_path)
 
     stems_base = os.path.join(download_path, STEMS_SUBDIR)
     os.makedirs(stems_base, exist_ok=True)
 
     while True:
-        pending = _get_pending_songs(download_path)
-        if not pending:
-            time.sleep(3)
-            continue
+        try:
+            pending = _get_pending_songs(download_path)
+            if not pending:
+                time.sleep(3)
+                continue
 
-        bn = pending[0]
-        src = os.path.join(download_path, bn)
-        stem_dir = os.path.join(stems_base, bn)
-        os.makedirs(stem_dir, exist_ok=True)
-        logger.info("Processing: %s", bn)
+            bn = pending[0]
+            logger.info("Spawning subprocess for: %s", bn)
 
-        success = split_demucs_6s(src, stem_dir, separator)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pikaraoke.lib.vocal_splitter",
+                    "--download-path",
+                    download_path,
+                    "--process-one",
+                    bn,
+                ],
+                capture_output=False,
+            )
 
-        if not success:
-            logger.error("Separation failed for %s", bn)
-            Path(stem_dir, ".error").touch()
-            continue
-
-        # Encode each WAV stem to M4A
-        all_encoded = True
-        for name in STEM_NAMES:
-            wav_path = os.path.join(stem_dir, f"{name}.wav")
-            m4a_path = os.path.join(stem_dir, f"{name}.m4a")
-            if os.path.exists(wav_path):
-                if _ffmpeg_wav_to_m4a(wav_path, m4a_path):
-                    os.remove(wav_path)
-                    logger.info("Encoded %s stem to M4A", name)
-                else:
-                    logger.error("Failed to encode %s to M4A", name)
-                    all_encoded = False
-
-        if not all_encoded:
-            Path(stem_dir, ".error").touch()
-        else:
-            logger.info("All stems ready for: %s", bn)
+            if result.returncode != 0:
+                logger.error("Subprocess failed (exit %d) for: %s", result.returncode, bn)
+                stem_dir = os.path.join(stems_base, bn)
+                os.makedirs(stem_dir, exist_ok=True)
+                Path(stem_dir, ".error").touch()
+        except Exception as e:
+            logger.error("Worker error (will retry): %s", e, exc_info=True)
+            time.sleep(5)
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +240,13 @@ if __name__ == "__main__":
 
     p = argparse.ArgumentParser(description="PiKaraoke stem splitter worker")
     p.add_argument("--download-path", "-d", required=True)
+    p.add_argument("--process-one", help="Process a single song and exit")
     args = p.parse_args()
 
-    run_worker(download_path=args.download_path)
+    logging.basicConfig(level=logging.INFO, format="[stem-splitter] %(levelname)s %(message)s")
+
+    if args.process_one:
+        ok = _process_one(args.download_path, args.process_one)
+        raise SystemExit(0 if ok else 1)
+    else:
+        run_worker(download_path=args.download_path)

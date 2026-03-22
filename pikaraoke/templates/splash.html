@@ -24,13 +24,10 @@
       unsupportedBrowser: "{{ _('This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox/Edge for best results.') }}",
     },
     scorePhrasesUrl: "{{ url_for('splash.get_score_phrases') }}",
+    bootId: "{{ config.get('BOOT_ID', '') }}",
   };
 </script>
-<script src="{{ url_for('static', filename='js/splash.js') }}?v={{ config.get('VERSION', '') }}"></script>
-<script>
-// Debug: log to server when splash template loads
-fetch('/stem_debug/SPLASH_TEMPLATE_LOADED_v1.20.1').catch(function(){});
-</script>
+<script src="{{ url_for('static', filename='js/splash.js') }}?b={{ config.get('BOOT_ID', '') }}"></script>
 {% endblock %} {% block body %}
 <div id="top-container" class="overlay">
 <i class="icon icon-mic-1 is-invisible" style="position: absolute" title="Current singer"></i>

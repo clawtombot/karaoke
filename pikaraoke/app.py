@@ -98,6 +98,7 @@ from flask_smorest import Api
 app.config["API_TITLE"] = "PiKaraoke API"
 app.config["API_VERSION"] = VERSION
 app.config["VERSION"] = VERSION
+app.config["BOOT_ID"] = str(int(__import__("time").time()))
 app.config["OPENAPI_VERSION"] = "3.0.2"
 app.config["OPENAPI_URL_PREFIX"] = "/"
 

@@ -31,6 +31,7 @@ let stemAudios = {};      // {drums: HTMLAudioElement, ...}
 let stemSyncInterval = null;
 let stemsActive = false;
 let stemMix = {};         // {drums: true, bass: false, ...}
+let stemPollTimer = null; // Poll for stem availability while processing
 
 // Browser detection
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -145,7 +146,7 @@ const teardownStemMixer = () => {
 
 const playStemAudio = () => {
   if (!stemsActive) return;
-  for (const audio of Object.values(stemAudios)) {
+  for (const [name, audio] of Object.entries(stemAudios)) {
     audio.play().catch(e => console.log("Stem play error:", name, e));
   }
 };
@@ -193,6 +194,7 @@ const hideVideo = () => {
 }
 
 const endSong = async (reason = null, showScore = false) => {
+  if (stemPollTimer) { clearInterval(stemPollTimer); stemPollTimer = null; }
   teardownStemMixer();
   if (showScore && !PikaraokeConfig.disableScore) {
     isScoreShown = true;
@@ -354,6 +356,12 @@ const stemLog = (msg) => {
 };
 
 const handleNowPlayingUpdate = (np) => {
+  // Auto-reload if server restarted (boot ID changed)
+  if (np.boot_id && PikaraokeConfig.bootId && np.boot_id !== PikaraokeConfig.bootId) {
+    console.log("Server restarted (boot_id:", PikaraokeConfig.bootId, "->", np.boot_id, ") — reloading");
+    window.location.href = window.location.href; // Force full reload
+    return;
+  }
   nowPlaying = np;
   stemLog("now_playing update: playing=" + np.now_playing + " stems=" + np.stems_available + " url=" + np.now_playing_url);
   if (np.now_playing) {
@@ -446,19 +454,36 @@ const handleNowPlayingUpdate = (np) => {
       volume = np.volume;
     }
 
-    // Start with video audio at full volume — stems will take over once confirmed playing
+    // Audio: video plays at full volume first (safe default).
+    // Stems are set up in parallel. Once at least one stem plays, video is muted.
     video.muted = false;
     video.volume = volume;
+
     if (np.stems_available && np.stem_urls) {
+      if (stemPollTimer) { clearInterval(stemPollTimer); stemPollTimer = null; }
       try {
         setupStemMixer(np.stem_urls, np.stem_mix || {});
         setStemMasterVolume(volume);
+        stemLog("Stem mixer ready, will activate after video plays");
       } catch (e) {
-        console.error("Stem setup failed:", e);
+        stemLog("Stem setup failed: " + e);
         teardownStemMixer();
       }
     } else {
       teardownStemMixer();
+      // Poll for stem availability while splitter is processing
+      if (np.vocal_splitter_enabled && !stemPollTimer) {
+        const hasError = np.stem_progress && np.stem_progress.error;
+        if (hasError) {
+          stemLog("Stem splitting failed, not polling");
+        } else {
+          const progress = np.stem_progress
+            ? np.stem_progress.ready + "/" + np.stem_progress.total
+            : "waiting";
+          stemLog("Stems not ready (" + progress + "), polling...");
+          stemPollTimer = setInterval(() => loadNowPlaying(), 5000);
+        }
+      }
     }
 
     const duration = $("#duration");
@@ -476,22 +501,45 @@ const handleNowPlayingUpdate = (np) => {
       setTimeout(() => video.play(), 1000);
     });
 
-    // Once video is playing, start stems and crossfade from video audio to stem audio
+    // Once video plays, start stems. Mute video only after first stem confirmed.
     if (stemsActive) {
       const startStems = () => {
-        let stemStarted = 0;
+        stemLog("Starting stems, syncing to video t=" + video.currentTime.toFixed(1));
+        let firstStemPlayed = false;
+        let stemResults = 0;
+        let stemFailures = 0;
         const totalStems = Object.keys(stemAudios).length;
         for (const [name, audio] of Object.entries(stemAudios)) {
           audio.currentTime = video.currentTime;
           audio.play().then(() => {
-            stemStarted++;
-            // Once all stems are playing, fade video audio to 0
-            if (stemStarted === totalStems) {
-              video.volume = 0;
-              console.log("All stems playing, video audio muted");
+            stemResults++;
+            if (!firstStemPlayed) {
+              firstStemPlayed = true;
+              video.volume = 0; // First stem confirmed — mute video
+              stemLog("First stem (" + name + ") playing, video muted");
             }
-          }).catch(e => console.error("Stem play failed:", name, e));
+            if (stemResults === totalStems) {
+              stemLog(totalStems + " stems done: " + (totalStems - stemFailures) + " ok, " + stemFailures + " failed");
+            }
+          }).catch(e => {
+            stemResults++;
+            stemFailures++;
+            stemLog("Stem FAILED: " + name + " - " + (e && e.message || e));
+            if (stemResults === totalStems && stemFailures === totalStems) {
+              stemLog("ALL stems failed — keeping video audio");
+              teardownStemMixer();
+              video.volume = volume;
+            }
+          });
         }
+        // Safety: if no stem responds within 3s, keep video audio
+        setTimeout(() => {
+          if (!firstStemPlayed && stemsActive) {
+            stemLog("Stem timeout (3s) — no stem played, keeping video audio");
+            teardownStemMixer();
+            video.volume = volume;
+          }
+        }, 3000);
       };
       if (isMediaPlaying(video)) {
         startStems();
@@ -517,6 +565,39 @@ const handleNowPlayingUpdate = (np) => {
   // Apply stem mix updates when not loading a new video
   if (np.stem_mix && stemsActive) {
     applyStemMix(np.stem_mix);
+  }
+
+  // Stems became available mid-playback (poll response) — hot-swap to stem audio
+  if (np.stems_available && np.stem_urls && !stemsActive && np.now_playing_url === currentVideoUrl) {
+    const video = getVideoPlayer();
+    if (stemPollTimer) { clearInterval(stemPollTimer); stemPollTimer = null; }
+    stemLog("Stems now available mid-playback, activating");
+    try {
+      setupStemMixer(np.stem_urls, np.stem_mix || {});
+      setStemMasterVolume(volume);
+      if (isMediaPlaying(video)) {
+        let hotSwapped = false;
+        for (const [name, audio] of Object.entries(stemAudios)) {
+          audio.currentTime = video.currentTime;
+          audio.play().then(() => {
+            if (!hotSwapped) {
+              hotSwapped = true;
+              video.volume = 0;
+              stemLog("Hot-swap: first stem (" + name + ") playing, video muted");
+            }
+          }).catch(e => stemLog("Hot-swap stem failed: " + name));
+        }
+        setTimeout(() => {
+          if (!hotSwapped && stemsActive) {
+            stemLog("Hot-swap timeout — keeping video audio");
+            teardownStemMixer();
+          }
+        }, 3000);
+      }
+    } catch (e) {
+      stemLog("Mid-playback stem setup failed: " + e);
+      teardownStemMixer();
+    }
   }
 }
 
@@ -729,24 +810,32 @@ const setupSocketEvents = () => {
   });
   socket.on('pause', () => {
     const video = getVideoPlayer();
-    const currVolume = video.volume;
     if (!video.paused) {
-      $(video).animate({ volume: 0 }, 1000, () => {
+      if (stemsActive) {
+        // Stems active: video is already muted, just pause everything
         video.pause();
-        video.volume = currVolume;
-      });
-      pauseStemAudio();
+        pauseStemAudio();
+      } else {
+        $(video).animate({ volume: 0 }, 1000, () => {
+          video.pause();
+          video.volume = volume;
+        });
+      }
     }
   });
   socket.on('play', () => {
     const video = getVideoPlayer();
-    const currVolume = video.volume;
     if (video.paused) {
       video.play();
-      video.volume = 0;
-      $(video).animate({ volume: currVolume }, 1000);
-      playStemAudio();
-      syncStemAudio();
+      if (stemsActive) {
+        // Stems active: keep video muted, resume stems
+        video.volume = 0;
+        playStemAudio();
+        syncStemAudio();
+      } else {
+        video.volume = 0;
+        $(video).animate({ volume: volume }, 1000);
+      }
     }
   });
   socket.on('skip', (reason) => {
