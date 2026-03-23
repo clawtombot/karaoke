@@ -180,6 +180,19 @@ def _process_one(download_path: str, basename: str) -> bool:
         return False
 
     logger.info("All stems ready for: %s", basename)
+
+    # Extract pitch data from vocals stem (non-blocking, best-effort)
+    vocals_m4a = os.path.join(stem_dir, "vocals.m4a")
+    if os.path.isfile(vocals_m4a):
+        try:
+            from pikaraoke.lib.pitch import extract_and_save
+            from pikaraoke.lib.pitch.extractor import PITCH_SUBDIR
+
+            pitch_dir = os.path.join(download_path, PITCH_SUBDIR)
+            extract_and_save(vocals_m4a, pitch_dir)
+        except Exception as e:
+            logger.warning("Pitch extraction failed (non-fatal): %s", e)
+
     return True
 
 
