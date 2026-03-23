@@ -149,6 +149,27 @@
   </div>
 </div>
 
+<!-- Quick controls overlay for debugging on splash screen -->
+<button id="splash-ctrl-toggle" title="Quick Controls" onclick="document.getElementById('splash-ctrl-overlay').classList.toggle('open')">
+  <i class="ti ti-player-play"></i>
+</button>
+<div id="splash-ctrl-overlay">
+  <div class="splash-ctrl-header">
+    <span>Quick Controls</span>
+    <button onclick="document.getElementById('splash-ctrl-overlay').classList.remove('open')" class="splash-ctrl-close"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="splash-ctrl-btns">
+    <a class="splash-ctrl-btn" onclick="fetch('/restart')" title="Restart"><i class="ti ti-player-skip-back"></i></a>
+    <a class="splash-ctrl-btn primary" id="splash-pause-btn" onclick="fetch('/pause').then(()=>this.classList.toggle('paused'))" title="Pause/Play"><i class="ti ti-player-pause"></i></a>
+    <a class="splash-ctrl-btn danger" onclick="fetch('/skip')" title="Skip"><i class="ti ti-player-skip-forward"></i></a>
+  </div>
+  <div class="splash-ctrl-vol">
+    <i class="ti ti-volume" style="color:var(--pr-dim);font-size:14px"></i>
+    <input type="range" min="0" max="1" step="0.025" value="0.85" oninput="fetch('/volume/'+this.value)" style="flex:1;accent-color:#00d2ff">
+    <i class="ti ti-volume-2" style="color:var(--pr-dim);font-size:14px"></i>
+  </div>
+</div>
+
 <div id="menu">
   <a
     role="button"

@@ -222,16 +222,8 @@
     if (current) {
       el.text(current.text).removeClass('pr-lyrics-idle').addClass('pr-lyrics-line active');
     } else {
-      // Between lines — show next line coming up dimly
-      var next = null;
-      for (var j = 0; j < prLyricsLines.length; j++) {
-        if (prLyricsLines[j].start > position) { next = prLyricsLines[j]; break; }
-      }
-      if (next && (next.start - position) < 3) {
-        el.text(next.text).removeClass('active pr-lyrics-idle').addClass('pr-lyrics-line');
-      } else {
-        el.text('♪').removeClass('pr-lyrics-line active').addClass('pr-lyrics-idle');
-      }
+      // Between lines — simple fallback: show nothing (♪ idle)
+      el.text('♪').removeClass('pr-lyrics-line active').addClass('pr-lyrics-idle');
     }
   }
 
@@ -336,6 +328,11 @@
     <!-- Main Column -->
     <div class="pr-main-col">
 
+      <!-- Lyrics panel — standalone above nowplaying card -->
+      <div id="pr-lyrics" class="pr-lyrics-panel" style="display:none">
+        <span id="pr-lyrics-text" class="pr-lyrics-idle">♪</span>
+      </div>
+
       <!-- Now Playing card -->
       <div class="pr-card pr-nowplaying">
         <div class="pr-np-inner">
@@ -360,11 +357,6 @@
             <span id="pr-time-current">00:00</span>
             <span id="pr-time-duration">00:00</span>
           </div>
-        </div>
-
-        <!-- Lyrics panel — shown above controls when subtitle is available -->
-        <div id="pr-lyrics" class="pr-lyrics-panel" style="display:none">
-          <span id="pr-lyrics-text" class="pr-lyrics-idle">♪</span>
         </div>
 
         <!-- Playback controls -->
