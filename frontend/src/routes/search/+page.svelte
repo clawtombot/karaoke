@@ -1,5 +1,6 @@
 <script lang="ts">
 	/**
+	import { api } from '$lib/api';
 	 * Search page — local library search with debounced autocomplete.
 	 * YouTube search is a placeholder pending backend JSON endpoint.
 	 */
@@ -56,7 +57,7 @@
 	async function addToQueue(path: string, label: string) {
 		const user = Cookies.get('user') ?? 'Guest';
 		try {
-			const res = await fetch('/enqueue', {
+			const res = await fetch(api('/enqueue'), {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ song: path, user }),

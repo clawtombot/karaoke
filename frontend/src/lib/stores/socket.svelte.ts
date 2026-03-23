@@ -2,6 +2,7 @@
  * Socket.IO reactive store — single connection shared across all components.
  * Uses Svelte 5 runes for fine-grained reactivity.
  */
+import { base } from '$app/paths';
 import { io, type Socket } from 'socket.io-client';
 
 // Connection state
@@ -13,7 +14,7 @@ export function connect() {
 	if (socket?.connected) return;
 
 	socket = io({
-		path: '/socket.io/',
+		path: `${base}/socket.io/`,
 		transports: ['websocket', 'polling'],
 	});
 

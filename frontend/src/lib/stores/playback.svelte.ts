@@ -70,7 +70,8 @@ export function reset() {
 /** Fetch initial state from API. */
 export async function fetchNowPlaying() {
 	try {
-		const res = await fetch('/now_playing');
+		const { base } = await import('$app/paths');
+		const res = await fetch(`${base}/now_playing`);
 		if (res.ok) {
 			const data = await res.json();
 			update(data);

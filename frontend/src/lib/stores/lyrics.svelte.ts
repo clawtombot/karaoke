@@ -1,4 +1,5 @@
 /**
+import { base } from '$app/paths';
  * Lyrics store — manages word-timed lyrics data and current highlight position.
  */
 
@@ -43,7 +44,7 @@ export async function loadLyrics(streamUid: string) {
 	currentWordIndex = -1;
 
 	try {
-		const res = await fetch(`/api/lyrics/${streamUid}`);
+		const res = await fetch(`${base}/api/lyrics/${streamUid}`);
 		if (res.ok) {
 			lyrics = await res.json();
 		} else if (res.status === 404) {

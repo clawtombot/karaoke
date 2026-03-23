@@ -11,6 +11,9 @@ const config = {
 			fallback: 'index.html',
 			precompress: false,
 		}),
+		paths: {
+			base: process.env.BASE_PATH || '',
+		},
 		alias: {
 			$components: 'src/components',
 		},

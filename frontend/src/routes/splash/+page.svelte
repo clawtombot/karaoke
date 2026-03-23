@@ -4,6 +4,7 @@
 	 * Video + pitch graph + lyrics overlay + now-playing bar + queue preview.
 	 */
 	import { onMount, onDestroy } from 'svelte';
+	import { base } from '$app/paths';
 	import { getState, fetchNowPlaying, type NowPlaying } from '$lib/stores/playback.svelte';
 	import { loadLyrics, clearLyrics } from '$lib/stores/lyrics.svelte';
 	import { emit, on } from '$lib/stores/socket.svelte';
@@ -78,7 +79,7 @@
 		loadLyrics(streamUid);
 
 		// Load pitch data
-		fetch(`/api/pitch/${streamUid}`)
+		fetch(`${base}/api/pitch/${streamUid}`)
 			.then((r) => (r.ok ? r.json() : []))
 			.then((data) => (pitchData = data))
 			.catch(() => (pitchData = []));

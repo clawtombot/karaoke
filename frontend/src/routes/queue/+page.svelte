@@ -1,5 +1,6 @@
 <script lang="ts">
 	/**
+	import { api } from '$lib/api';
 	 * Queue management page — view, reorder, and manage the song queue.
 	 * Real-time updates via Socket.IO queue_update event.
 	 */
@@ -37,7 +38,7 @@
 
 	async function fetchQueue() {
 		try {
-			const res = await fetch('/get_queue');
+			const res = await fetch(api('/get_queue'));
 			if (res.ok) {
 				queue = await res.json();
 			}
@@ -50,7 +51,7 @@
 
 	async function editQueue(action: string, song: string) {
 		try {
-			await fetch(`/queue/edit?action=${encodeURIComponent(action)}&song=${encodeURIComponent(song)}`);
+			await fetch(api(`/queue/edit?action=${encodeURIComponent(action)}&song=${encodeURIComponent(song)}`));
 			await fetchQueue();
 		} catch (e) {
 			console.error('[queue] edit failed:', e);
@@ -66,7 +67,7 @@
 		queue = updated;
 
 		try {
-			await fetch('/queue/reorder', {
+			await fetch(api('/queue/reorder'), {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ old_index: oldIndex, new_index: newIndex }),
@@ -79,7 +80,7 @@
 
 	async function addRandom() {
 		try {
-			await fetch('/queue/addrandom/5');
+			await fetch(api('/queue/addrandom/5'));
 			await fetchQueue();
 			showToast('Added 5 random songs');
 		} catch (e) {
@@ -97,7 +98,7 @@
 		confirmClear = false;
 		if (confirmTimer) clearTimeout(confirmTimer);
 		try {
-			await fetch('/queue/edit?action=clear');
+			await fetch(api('/queue/edit?action=clear'));
 			await fetchQueue();
 			showToast('Queue cleared');
 		} catch (e) {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { api } from '$lib/api';
 	import { getState, fetchNowPlaying } from '$lib/stores/playback.svelte';
 	import { loadLyrics, clearLyrics } from '$lib/stores/lyrics.svelte';
 	import NowPlaying from '$components/NowPlaying.svelte';
@@ -31,21 +32,21 @@
 		if (np.now_playing_position) currentTimeMs = np.now_playing_position * 1000;
 	});
 
-	async function doSkip() { await fetch('/skip'); }
-	async function doPause() { await fetch('/pause'); }
-	async function doRestart() { if (confirm('Restart?')) await fetch('/restart'); }
+	async function doSkip() { await fetch(api('/skip')); }
+	async function doPause() { await fetch(api('/pause')); }
+	async function doRestart() { if (confirm('Restart?')) await fetch(api('/restart')); }
 	async function setVolume(e: Event) {
 		const val = (e.target as HTMLInputElement).value;
 		volume = parseFloat(val);
-		await fetch('/volume/' + val);
+		await fetch(api('/volume/') + val);
 	}
 	async function applyTranspose() {
 		if (transpose !== 0 && confirm('Transpose ' + (transpose > 0 ? '+' : '') + transpose + '?')) {
-			await fetch('/transpose/' + transpose);
+			await fetch(api('/transpose/') + transpose);
 			transpose = 0;
 		}
 	}
-	async function toggleStem(stem: string) { await fetch('/stem_toggle/' + stem); }
+	async function toggleStem(stem: string) { await fetch(api('/stem_toggle/') + stem); }
 
 	onMount(() => {
 		fetchNowPlaying();
