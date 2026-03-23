@@ -175,7 +175,7 @@
 	<!-- Header -->
 	<div class="mb-6 flex items-center gap-3">
 		<a
-			href="/"
+			href="{base}/remote"
 			class="glass-light flex h-9 w-9 items-center justify-center rounded-full text-sm"
 			style="color: var(--color-dim)"
 		>
