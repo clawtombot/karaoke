@@ -321,9 +321,9 @@ def parse_pikaraoke_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--vocal-splitter",
-        action="store_true",
-        help="Enable 6-stem splitting (drums, bass, other, vocals, guitar, piano) via demucs-mlx. Requires demucs-mlx package.",
-        required=False,
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="6-stem splitting via demucs-mlx (on by default). Use --no-vocal-splitter to disable.",
     )
 
     args = parser.parse_args()
