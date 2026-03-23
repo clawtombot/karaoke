@@ -85,10 +85,13 @@
 			.then((data) => (pitchData = data))
 			.catch(() => (pitchData = []));
 
-		// Setup stems if available
+		// Setup stems if available (prefix URLs with base path for proxy)
 		if (np.stems_available && np.stem_urls) {
 			stemMixer.init();
-			stemMixer.loadStems(np.stem_urls).then((ok) => {
+			const prefixedUrls = Object.fromEntries(
+				Object.entries(np.stem_urls).map(([k, v]) => [k, `${base}${v}`])
+			);
+			stemMixer.loadStems(prefixedUrls).then((ok) => {
 				if (ok && video && !video.paused) {
 					video.volume = 0; // Mute video, stems handle audio
 					stemMixer.play(video.currentTime);
