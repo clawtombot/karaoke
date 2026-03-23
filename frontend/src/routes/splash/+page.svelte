@@ -115,10 +115,13 @@
 		}
 	});
 
-	// Sync stem mix changes
+	// Sync stem mix changes — read reactive deps BEFORE the non-reactive
+	// isActive() gate so Svelte always subscribes to stem_mix/volume changes.
 	$effect(() => {
+		const mix = np.stem_mix;
+		const vol = np.volume;
 		if (stemMixer.isActive()) {
-			stemMixer.applyMix(np.stem_mix, np.volume);
+			stemMixer.applyMix(mix, vol);
 		}
 	});
 
