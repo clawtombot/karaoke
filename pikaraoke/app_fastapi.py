@@ -255,27 +255,44 @@ setup_socket_events(sio)
 # ---------------------------------------------------------------------------
 # Static files / SPA catch-all
 # ---------------------------------------------------------------------------
-# Serve Svelte build output (production)
-_frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
-if os.path.isdir(_frontend_dist):
-    # SvelteKit outputs to _app/ and immutable/ — mount whatever exists
-    for subdir in ("_app", "immutable", "assets"):
-        sub_path = os.path.join(_frontend_dist, subdir)
-        if os.path.isdir(sub_path):
-            fastapi_app.mount(f"/{subdir}", StaticFiles(directory=sub_path), name=f"spa-{subdir}")
 
-    @fastapi_app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        """Catch-all: serve Svelte SPA index.html for client-side routing."""
-        file_path = os.path.join(_frontend_dist, full_path)
-        if os.path.isfile(file_path):
-            return FileResponse(file_path)
-        return FileResponse(os.path.join(_frontend_dist, "index.html"))
-
-# Serve legacy static assets (fonts, images, sounds) during transition
+# Serve legacy static assets (fonts, images, sounds)
 _legacy_static = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_legacy_static):
     fastapi_app.mount("/static", StaticFiles(directory=_legacy_static), name="legacy-static")
+
+# Serve Svelte build output (production)
+# The SPA is built with BASE_PATH=/karaoke so HTML references /karaoke/_app/...
+# Behind proxy: /karaoke/_app/... → stripped to /_app/... → served from dist/_app/
+# Direct access: /karaoke/_app/... → needs mount at /karaoke/_app/
+_frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+if os.path.isdir(_frontend_dist):
+    _base_path = os.environ.get("BASE_PATH", "")
+
+    # Mount _app at both /_app and /{base}/_app to handle proxy and direct access
+    _app_dir = os.path.join(_frontend_dist, "_app")
+    if os.path.isdir(_app_dir):
+        fastapi_app.mount("/_app", StaticFiles(directory=_app_dir), name="spa-app")
+        if _base_path:
+            fastapi_app.mount(f"{_base_path}/_app", StaticFiles(directory=_app_dir), name="spa-app-prefixed")
+
+    # Catch-all for SPA client-side routing
+    @fastapi_app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        """Serve Svelte SPA — static files first, then index.html fallback."""
+        # Strip base path prefix if present
+        clean_path = full_path
+        if _base_path and clean_path.startswith(_base_path.lstrip("/")):
+            clean_path = clean_path[len(_base_path.lstrip("/")):]
+            clean_path = clean_path.lstrip("/")
+
+        # Try to serve the file directly from dist
+        file_path = os.path.join(_frontend_dist, clean_path) if clean_path else ""
+        if clean_path and os.path.isfile(file_path):
+            return FileResponse(file_path)
+
+        # SPA fallback — return index.html for all routes
+        return FileResponse(os.path.join(_frontend_dist, "index.html"))
 
 # ---------------------------------------------------------------------------
 # Combined ASGI app (Socket.IO wraps FastAPI)
