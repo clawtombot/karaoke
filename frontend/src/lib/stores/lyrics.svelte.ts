@@ -1,7 +1,7 @@
 /**
-import { base } from '$app/paths';
  * Lyrics store — manages word-timed lyrics data and current highlight position.
  */
+import { base } from '$app/paths';
 
 export interface LyricsWord {
 	start: number; // ms
