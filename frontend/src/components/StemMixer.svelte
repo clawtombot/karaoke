@@ -12,7 +12,7 @@
 	const stems = [
 		{ name: 'drums', icon: 'ti-arrows-shuffle', label: 'Drums' },
 		{ name: 'bass', icon: 'ti-wave-sine', label: 'Bass' },
-		{ name: 'other', icon: 'ti-waveform', label: 'Other' },
+		{ name: 'other', icon: 'ti-wave-square', label: 'Other' },
 		{ name: 'vocals', icon: 'ti-microphone-2', label: 'Vocals' },
 		{ name: 'guitar', icon: 'ti-guitar-pick', label: 'Guitar' },
 		{ name: 'piano', icon: 'ti-piano', label: 'Piano' },
