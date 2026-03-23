@@ -56,6 +56,23 @@
 			>
 				Search Songs
 			</a>
+			<a
+				href="{base}/browse"
+				class="glass-light block rounded-xl px-6 py-3 text-center font-semibold"
+				style="color: var(--color-dim)"
+			>
+				Browse Library
+			</a>
+		</div>
+
+		<div class="mt-4 flex justify-center">
+			<a
+				href="{base}/settings"
+				class="flex items-center gap-2 text-xs font-semibold"
+				style="color: var(--color-faint)"
+			>
+				&#9881; Settings
+			</a>
 		</div>
 	</div>
 </div>

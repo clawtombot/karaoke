@@ -114,8 +114,8 @@
 	<nav class="tab-bar">
 		<a href="{base}/remote" class="tab active"><i class="ti ti-home-2"></i><span>Home</span></a>
 		<a href="{base}/search" class="tab"><i class="ti ti-search"></i><span>Search</span></a>
+		<a href="{base}/browse" class="tab"><i class="ti ti-music"></i><span>Browse</span></a>
 		<a href="{base}/queue" class="tab"><i class="ti ti-list-numbers"></i><span>Queue</span></a>
-		<a href="{base}/splash" class="tab" target="_blank"><i class="ti ti-device-tv"></i><span>TV</span></a>
 	</nav>
 </div>
 
