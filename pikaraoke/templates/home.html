@@ -39,6 +39,9 @@
         $('#pr-time-duration').text(formatTime(np.now_playing_duration));
         $('.pr-time-display').show();
       }
+      // Lyrics
+      loadLyrics(np.now_playing_subtitle_url || null);
+      updateLyricsDisplay(np.now_playing_position || null);
     } else {
       $('#pr-np-title').text('{{ _("Nothing playing") }}');
       $('#pr-np-singer').text('{{ _("Queue a song to get started") }}');
@@ -48,6 +51,8 @@
       $('#pr-key-badge').hide();
       $('#pr-progress-fill').css('width', '0%');
       $('.pr-time-display').hide();
+      loadLyrics(null);
+      $('#pr-lyrics').hide();
     }
 
     // Up next
@@ -149,6 +154,83 @@
         btn.addClass('active');
       } else {
         btn.removeClass('active');
+      }
+    }
+  }
+
+  // ── Lyrics engine ───────────────────────────────────────────────────
+  var prLyricsLines = [];   // [{start, end, text}]
+  var prLyricsUrl = null;
+  var prLyricsTimer = null;
+
+  function parseAssSubtitles(text) {
+    var lines = [];
+    var inEvents = false;
+    text.split('\n').forEach(function(raw) {
+      var line = raw.trim();
+      if (line === '[Events]') { inEvents = true; return; }
+      if (line.startsWith('[') && line !== '[Events]') { inEvents = false; return; }
+      if (!inEvents || !line.startsWith('Dialogue:')) return;
+      // Dialogue: Layer,Start,End,Style,...,,Text
+      var parts = line.split(',');
+      if (parts.length < 10) return;
+      var start = assTimeToSec(parts[1].trim());
+      var end   = assTimeToSec(parts[2].trim());
+      // Join remaining parts (text may contain commas), strip override tags
+      var rawText = parts.slice(9).join(',');
+      // Remove ASS override tags like {\k40} {\an8} etc
+      var plainText = rawText.replace(/\{[^}]*\}/g, '').trim();
+      if (plainText) lines.push({ start: start, end: end, text: plainText });
+    });
+    return lines.sort(function(a, b) { return a.start - b.start; });
+  }
+
+  function assTimeToSec(t) {
+    // H:MM:SS.cc
+    var m = t.match(/(\d+):(\d+):(\d+)\.(\d+)/);
+    if (!m) return 0;
+    return parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseInt(m[3]) + parseInt(m[4]) / 100;
+  }
+
+  function loadLyrics(subtitleUrl) {
+    if (subtitleUrl === prLyricsUrl) return;
+    prLyricsUrl = subtitleUrl;
+    prLyricsLines = [];
+    if (!subtitleUrl) {
+      $('#pr-lyrics').hide();
+      return;
+    }
+    $.get(window.SCRIPT_ROOT + subtitleUrl, function(data) {
+      prLyricsLines = parseAssSubtitles(data);
+      if (prLyricsLines.length > 0) {
+        $('#pr-lyrics').show();
+        $('#pr-lyrics-text').text('♪').removeClass('active').addClass('pr-lyrics-idle');
+      }
+    }).fail(function() { $('#pr-lyrics').hide(); });
+  }
+
+  function updateLyricsDisplay(position) {
+    if (!prLyricsLines.length || position == null) return;
+    var current = null;
+    for (var i = 0; i < prLyricsLines.length; i++) {
+      if (position >= prLyricsLines[i].start && position < prLyricsLines[i].end) {
+        current = prLyricsLines[i];
+        break;
+      }
+    }
+    var el = $('#pr-lyrics-text');
+    if (current) {
+      el.text(current.text).removeClass('pr-lyrics-idle').addClass('pr-lyrics-line active');
+    } else {
+      // Between lines — show next line coming up dimly
+      var next = null;
+      for (var j = 0; j < prLyricsLines.length; j++) {
+        if (prLyricsLines[j].start > position) { next = prLyricsLines[j]; break; }
+      }
+      if (next && (next.start - position) < 3) {
+        el.text(next.text).removeClass('active pr-lyrics-idle').addClass('pr-lyrics-line');
+      } else {
+        el.text('♪').removeClass('pr-lyrics-line active').addClass('pr-lyrics-idle');
       }
     }
   }
@@ -278,6 +360,11 @@
             <span id="pr-time-current">00:00</span>
             <span id="pr-time-duration">00:00</span>
           </div>
+        </div>
+
+        <!-- Lyrics panel — shown above controls when subtitle is available -->
+        <div id="pr-lyrics" class="pr-lyrics-panel" style="display:none">
+          <span id="pr-lyrics-text" class="pr-lyrics-idle">♪</span>
         </div>
 
         <!-- Playback controls -->

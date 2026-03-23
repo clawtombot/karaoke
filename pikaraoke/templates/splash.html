@@ -193,6 +193,55 @@
   <source src="" type="audio/mpeg">
 </audio>
 
+<!-- Quick-controls overlay for debugging from splash screen -->
+<div id="splash-ctrl-toggle" title="Controls">
+  <i class="ti ti-player-pause" id="splash-ctrl-icon"></i>
+</div>
+<div id="splash-ctrl-overlay">
+  <div class="splash-ctrl-label">QUICK CONTROLS</div>
+  <div class="splash-ctrl-row">
+    <button class="splash-ctrl-btn" id="sc-restart" onclick="fetch(window.SCRIPT_ROOT+'/restart')">
+      <i class="ti ti-player-skip-back"></i> Restart
+    </button>
+    <button class="splash-ctrl-btn" id="sc-pause" onclick="fetch(window.SCRIPT_ROOT+'/pause').then(()=>updateSplashCtrlIcon())">
+      <i class="ti ti-player-pause" id="sc-pause-icon"></i> Pause
+    </button>
+    <button class="splash-ctrl-btn danger" id="sc-skip" onclick="if(confirm('Skip?'))fetch(window.SCRIPT_ROOT+'/skip')">
+      <i class="ti ti-player-skip-forward"></i> Skip
+    </button>
+  </div>
+  <div class="splash-ctrl-label" style="margin-top:8px">VOLUME</div>
+  <div class="splash-vol-row">
+    <i class="ti ti-volume" style="color:var(--pr-faint);font-size:14px"></i>
+    <input type="range" id="sc-vol" min="0" max="1" step="0.025" value="0.85"
+      oninput="fetch(window.SCRIPT_ROOT+'/volume/'+this.value)">
+    <i class="ti ti-volume-2" style="color:var(--pr-teal);font-size:14px"></i>
+  </div>
+</div>
+<script>
+  (function() {
+    var overlay = document.getElementById('splash-ctrl-overlay');
+    document.getElementById('splash-ctrl-toggle').addEventListener('click', function() {
+      overlay.style.display = overlay.style.display === 'block' ? 'none' : 'block';
+    });
+    function updateSplashCtrlIcon() {
+      fetch(window.SCRIPT_ROOT + '/now_playing').then(r => r.json()).then(function(d) {
+        var icon = document.getElementById('sc-pause-icon');
+        if (d && d.is_paused) {
+          icon.className = 'ti ti-player-play';
+        } else {
+          icon.className = 'ti ti-player-pause';
+        }
+        var vol = document.getElementById('sc-vol');
+        if (d && d.volume !== undefined) vol.value = d.volume;
+      }).catch(function(){});
+    }
+    window.updateSplashCtrlIcon = updateSplashCtrlIcon;
+    // Sync icon on open
+    document.getElementById('splash-ctrl-toggle').addEventListener('click', updateSplashCtrlIcon);
+  })();
+</script>
+
 <audio id="score-drums">
 	<source
 	  src="{{  url_for('static', filename='sounds/score-drums.mp3') }}"
