@@ -1,0 +1,71 @@
+"""Socket.IO event handlers for HomeKaraoke (python-socketio ASGI)."""
+
+import logging
+
+from pikaraoke.lib.dependencies import get_karaoke
+
+# Track connected splash screen clients and the elected master
+splash_connections: set[str] = set()
+master_splash_id: str | None = None
+
+
+def setup_socket_events(sio) -> None:
+    """Register Socket.IO event handlers on the AsyncServer."""
+
+    @sio.on("end_song")
+    async def end_song(sid, reason: str) -> None:
+        k = get_karaoke()
+        k.playback_controller.end_song(reason)
+
+    @sio.on("start_song")
+    async def start_song(sid) -> None:
+        k = get_karaoke()
+        k.playback_controller.start_song()
+
+    @sio.on("clear_notification")
+    async def clear_notification(sid) -> None:
+        k = get_karaoke()
+        k.reset_now_playing_notification()
+
+    @sio.on("register_splash")
+    async def register_splash(sid) -> None:
+        global master_splash_id
+        splash_connections.add(sid)
+        logging.info(f"Splash screen registered: {sid}")
+
+        if master_splash_id is None:
+            master_splash_id = sid
+            await sio.emit("splash_role", "master", room=sid)
+            logging.info(f"Master splash assigned: {sid}")
+        else:
+            await sio.emit("splash_role", "slave", room=sid)
+            logging.info(f"Slave splash assigned: {sid}")
+
+    @sio.on("stem_toggle")
+    async def handle_stem_toggle(sid, stem: str) -> None:
+        k = get_karaoke()
+        if k.toggle_stem(stem):
+            await sio.emit("stem_mix_update", k.stem_mix)
+
+    @sio.on("playback_position")
+    async def handle_playback_position(sid, position: float) -> None:
+        global master_splash_id
+        if sid == master_splash_id:
+            k = get_karaoke()
+            k.playback_controller.now_playing_position = position
+            await sio.emit("playback_position", position, skip_sid=sid)
+
+    @sio.on("disconnect")
+    async def handle_disconnect(sid) -> None:
+        global master_splash_id
+        if sid in splash_connections:
+            splash_connections.remove(sid)
+            logging.info(f"Splash screen disconnected: {sid}")
+            if sid == master_splash_id:
+                master_splash_id = None
+                logging.info("Master splash disconnected, electing new master")
+                if splash_connections:
+                    new_master = next(iter(splash_connections))
+                    master_splash_id = new_master
+                    await sio.emit("splash_role", "master", room=new_master)
+                    logging.info(f"New master splash elected: {new_master}")
