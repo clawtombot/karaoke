@@ -24,6 +24,28 @@ class DownloadBody(BaseModel):
 # --- Routes ---
 
 
+@router.get("/api/youtube/search")
+async def search(search_string: str, non_karaoke: bool = False):
+    """Search YouTube for karaoke videos. Returns JSON list of results."""
+    if non_karaoke:
+        results = get_search_results(search_string)
+    else:
+        results = get_search_results(search_string + " karaoke")
+
+    # get_search_results returns list of (title, url, id, channel, duration) tuples
+    return [
+        {
+            "title": r[0],
+            "url": r[1],
+            "id": r[2],
+            "channel": r[3] if len(r) > 3 else None,
+            "duration": r[4] if len(r) > 4 else None,
+            "thumbnail": f"https://img.youtube.com/vi/{r[2]}/mqdefault.jpg",
+        }
+        for r in (results or [])
+    ]
+
+
 @router.get("/autocomplete")
 async def autocomplete(q: str):
     """Search available songs for autocomplete."""
