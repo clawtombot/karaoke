@@ -25,6 +25,7 @@
 	let currentVideoUrl: string | null = null;
 	let isMaster = $state(false);
 	let showPitchGraph = $state(true);
+	let stemsReady = false; // Stems loaded but waiting for video to play
 
 	// Format time for display
 	function formatTime(seconds: number): string {
@@ -32,6 +33,28 @@
 		const m = Math.floor(seconds / 60);
 		const s = Math.floor(seconds % 60);
 		return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+	}
+
+	// Try to play video, with muted fallback for autoplay policy
+	function tryPlay() {
+		if (!video) return;
+		video.play().catch(() => {
+			// Autoplay blocked — try muted (browsers allow muted autoplay)
+			console.warn('[splash] autoplay blocked, retrying muted');
+			video.muted = true;
+			video.play().catch((e) => console.error('[splash] play failed even muted:', e));
+		});
+	}
+
+	// Start stems when video actually begins playing
+	function activateStems() {
+		if (stemsReady && video && !video.paused) {
+			video.volume = 0; // Mute video, stems handle audio
+			video.muted = false; // Undo muted fallback (audio comes from stems)
+			stemMixer.play(video.currentTime);
+			stemMixer.applyMix(np.stem_mix, np.volume);
+			stemsReady = false;
+		}
 	}
 
 	// rAF loop for lyrics sync + pitch sync
@@ -50,6 +73,7 @@
 		if (!url || url === currentVideoUrl || !video) return;
 
 		currentVideoUrl = url;
+		stemsReady = false;
 		const fullUrl = `${base}${url}`;
 
 		// Clean up previous
@@ -60,20 +84,57 @@
 
 		if (url.endsWith('.m3u8')) {
 			if (Hls.isSupported()) {
-				hlsInstance = new Hls({ startPosition: 0 });
-				hlsInstance.loadSource(fullUrl);
-				hlsInstance.attachMedia(video);
+				const hls = new Hls({
+					startPosition: 0,
+					maxBufferLength: 30,
+					maxMaxBufferLength: 60,
+				});
+				hlsInstance = hls;
+
+				// Wait for manifest before playing (prevents race condition)
+				hls.on(Hls.Events.MANIFEST_PARSED, () => {
+					video.volume = np.volume;
+					tryPlay();
+				});
+
+				// Error recovery
+				hls.on(Hls.Events.ERROR, (_event, data) => {
+					if (!data.fatal) return;
+					console.error('[hls] fatal error:', data.type, data.details);
+					if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+						console.warn('[hls] network error, retrying...');
+						hls.startLoad();
+					} else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+						console.warn('[hls] media error, recovering...');
+						hls.recoverMediaError();
+					} else {
+						// Unrecoverable — destroy and reload after delay
+						console.error('[hls] unrecoverable, reloading in 2s...');
+						hls.destroy();
+						hlsInstance = null;
+						setTimeout(() => {
+							if (currentVideoUrl === url) {
+								currentVideoUrl = null; // Allow re-trigger of $effect
+							}
+						}, 2000);
+					}
+				});
+
+				hls.loadSource(fullUrl);
+				hls.attachMedia(video);
 			} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+				// Safari native HLS
 				video.src = fullUrl;
 				video.load();
+				video.volume = np.volume;
+				tryPlay();
 			}
 		} else {
 			video.src = fullUrl;
 			video.load();
+			video.volume = np.volume;
+			tryPlay();
 		}
-
-		video.volume = np.volume;
-		video.play().catch((e) => console.error('Play failed:', e));
 
 		// Load lyrics for this song
 		const streamUid = url.split('/').pop()?.replace(/\.(m3u8|mp4)$/, '') ?? '';
@@ -92,10 +153,9 @@
 				Object.entries(np.stem_urls).map(([k, v]) => [k, `${base}${v}`])
 			);
 			stemMixer.loadStems(prefixedUrls).then((ok) => {
-				if (ok && video && !video.paused) {
-					video.volume = 0; // Mute video, stems handle audio
-					stemMixer.play(video.currentTime);
-					stemMixer.applyMix(np.stem_mix, np.volume);
+				if (ok) {
+					stemsReady = true;
+					activateStems(); // Try immediately; also triggered by onVideoPlay
 				}
 			});
 		}
@@ -166,6 +226,12 @@
 				}
 				stemMixer.setMasterVolume(newVol);
 			}),
+			// Re-register and re-fetch after socket reconnects
+			on('connect', () => {
+				console.log('[splash] socket reconnected, re-registering');
+				emit('register_splash');
+				fetchNowPlaying();
+			}),
 		];
 
 		// Start rAF loop
@@ -216,6 +282,8 @@
 
 	function onVideoPlay() {
 		emit('start_song');
+		// Stems may have loaded while video was buffering — activate now
+		activateStems();
 	}
 </script>
 
