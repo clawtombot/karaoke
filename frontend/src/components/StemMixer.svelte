@@ -10,12 +10,12 @@
 	const np = $derived(getState());
 
 	const stems = [
-		{ name: 'drums', icon: 'ti-vinyl', label: 'Drums' },
-		{ name: 'bass', icon: 'ti-wave-sine', label: 'Bass' },
-		{ name: 'other', icon: 'ti-music', label: 'Other' },
-		{ name: 'vocals', icon: 'ti-microphone-2', label: 'Vocals' },
-		{ name: 'guitar', icon: 'ti-guitar-pick', label: 'Guitar' },
-		{ name: 'piano', icon: 'ti-piano', label: 'Piano' },
+		{ name: 'drums', iconClass: 'fa-solid fa-drum', label: 'Drums' },
+		{ name: 'bass', iconClass: 'ti ti-wave-sine', label: 'Bass' },
+		{ name: 'other', iconClass: 'ti ti-music', label: 'Other' },
+		{ name: 'vocals', iconClass: 'fa-solid fa-microphone', label: 'Vocals' },
+		{ name: 'guitar', iconClass: 'fa-solid fa-guitar', label: 'Guitar' },
+		{ name: 'piano', iconClass: 'ti ti-piano', label: 'Piano' },
 	] as const;
 
 	type Preset = 'karaoke' | 'original' | 'practice';
@@ -72,7 +72,7 @@
 						on:click={() => onToggle(stem.name)}
 						title={stem.label}
 					>
-						<i class="ti {stem.icon}"></i>
+						<i class="{stem.iconClass}"></i>
 						<span class="stem-dot" class:on={isEnabled(stem.name)}></span>
 					</button>
 				{/each}
