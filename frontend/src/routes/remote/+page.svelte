@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
+	import { base } from '$app/paths';
 	import { getState, fetchNowPlaying } from '$lib/stores/playback.svelte';
 	import { loadLyrics, clearLyrics } from '$lib/stores/lyrics.svelte';
 	import NowPlaying from '$components/NowPlaying.svelte';
@@ -104,17 +105,17 @@
 
 		{#if !np.now_playing}
 			<div class="mt-4 flex flex-col gap-3">
-				<a href="/search" class="glass-light block rounded-xl px-6 py-3 text-center font-semibold" style="color: var(--color-teal)">Search Songs</a>
-				<a href="/queue" class="glass-light block rounded-xl px-6 py-3 text-center font-semibold" style="color: var(--color-dim)">View Queue</a>
+				<a href="{base}/search" class="glass-light block rounded-xl px-6 py-3 text-center font-semibold" style="color: var(--color-teal)">Search Songs</a>
+				<a href="{base}/queue" class="glass-light block rounded-xl px-6 py-3 text-center font-semibold" style="color: var(--color-dim)">View Queue</a>
 			</div>
 		{/if}
 	</div>
 
 	<nav class="tab-bar">
-		<a href="/remote" class="tab active"><i class="ti ti-home-2"></i><span>Home</span></a>
-		<a href="/search" class="tab"><i class="ti ti-search"></i><span>Search</span></a>
-		<a href="/queue" class="tab"><i class="ti ti-list-numbers"></i><span>Queue</span></a>
-		<a href="/splash" class="tab" target="_blank"><i class="ti ti-device-tv"></i><span>TV</span></a>
+		<a href="{base}/remote" class="tab active"><i class="ti ti-home-2"></i><span>Home</span></a>
+		<a href="{base}/search" class="tab"><i class="ti ti-search"></i><span>Search</span></a>
+		<a href="{base}/queue" class="tab"><i class="ti ti-list-numbers"></i><span>Queue</span></a>
+		<a href="{base}/splash" class="tab" target="_blank"><i class="ti ti-device-tv"></i><span>TV</span></a>
 	</nav>
 </div>
 

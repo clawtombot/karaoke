@@ -4,6 +4,7 @@
 	 * For now, show a simple landing with links to both.
 	 */
 	import { getState } from '$lib/stores/playback.svelte';
+	import { base } from '$app/paths';
 	import { isConnected } from '$lib/stores/socket.svelte';
 
 	const np = $derived(getState());
@@ -35,21 +36,21 @@
 
 		<div class="flex flex-col gap-3">
 			<a
-				href="/remote"
+				href="{base}/remote"
 				class="glow-purple block rounded-xl px-6 py-3 text-center font-semibold text-white"
 				style="background: linear-gradient(135deg, var(--color-purple), var(--color-teal))"
 			>
 				Phone Remote
 			</a>
 			<a
-				href="/splash"
+				href="{base}/splash"
 				class="glass-light block rounded-xl px-6 py-3 text-center font-semibold"
 				style="color: var(--color-teal)"
 			>
 				TV Display
 			</a>
 			<a
-				href="/search"
+				href="{base}/search"
 				class="glass-light block rounded-xl px-6 py-3 text-center font-semibold"
 				style="color: var(--color-dim)"
 			>

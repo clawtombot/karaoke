@@ -1,10 +1,11 @@
 <script lang="ts">
 	/**
-	import { api } from '$lib/api';
 	 * Queue management page — view, reorder, and manage the song queue.
 	 * Real-time updates via Socket.IO queue_update event.
 	 */
 	import { onMount, onDestroy } from 'svelte';
+	import { base } from '$app/paths';
+	import { api } from '$lib/api';
 	import { on } from '$lib/stores/socket.svelte';
 	import { getState } from '$lib/stores/playback.svelte';
 
