@@ -7,6 +7,7 @@
 	import NowPlaying from '$components/NowPlaying.svelte';
 	import LyricsPanel from '$components/LyricsPanel.svelte';
 	import StemMixer from '$components/StemMixer.svelte';
+	import TabBar from '$components/TabBar.svelte';
 
 	const np = $derived(getState());
 	let currentTimeMs = $state(0);
@@ -111,16 +112,11 @@
 		{/if}
 	</div>
 
-	<nav class="tab-bar">
-		<a href="{base}/remote" class="tab active"><i class="ti ti-home-2"></i><span>Home</span></a>
-		<a href="{base}/search" class="tab"><i class="ti ti-search"></i><span>Search</span></a>
-		<a href="{base}/browse" class="tab"><i class="ti ti-music"></i><span>Browse</span></a>
-		<a href="{base}/queue" class="tab"><i class="ti ti-list-numbers"></i><span>Queue</span></a>
-	</nav>
+	<TabBar />
 </div>
 
 <style>
-	.remote-root { position: relative; z-index: 1; min-height: 100vh; padding-bottom: 70px; }
+	.remote-root { position: relative; z-index: 1; min-height: 100vh; padding-bottom: 90px; }
 	.remote-content { max-width: 430px; margin: 0 auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
 	.controls { display: flex; justify-content: center; align-items: center; gap: 16px; }
 	.ctrl-btn { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--color-border2); background: var(--color-surface); color: var(--color-text); font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
@@ -140,8 +136,4 @@
 	.up-next-label { font-family: var(--font-mono); font-size: 0.6rem; color: var(--color-faint); letter-spacing: 0.15em; text-transform: uppercase; }
 	.up-next-title { font-weight: 600; font-size: 0.9rem; color: var(--color-amber); }
 	.up-next-singer { font-size: 0.75rem; color: var(--color-green); }
-	.tab-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; display: flex; justify-content: space-around; padding: 8px 0 env(safe-area-inset-bottom, 8px); background: rgba(8, 4, 18, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--color-border); }
-	.tab { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 16px; color: var(--color-faint); text-decoration: none; font-size: 0.6rem; font-weight: 600; }
-	.tab i { font-size: 1.2rem; }
-	.tab:hover, .tab.active { color: var(--color-teal); }
 </style>

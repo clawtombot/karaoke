@@ -5,6 +5,7 @@
 	import { base } from '$app/paths';
 	import { api } from '$lib/api';
 	import Cookies from 'js-cookie';
+	import TabBar from '$components/TabBar.svelte';
 
 	interface BrowseResponse {
 		songs: string[];
@@ -63,7 +64,7 @@
 			}
 			if (sortMode === 'date') params.set('sort', 'date');
 
-			const res = await fetch(api(`/browse?${params}`));
+			const res = await fetch(api(`/api/browse?${params}`));
 			if (res.ok) {
 				const data: BrowseResponse = await res.json();
 				songs = data.songs;
@@ -440,13 +441,7 @@
 	</div>
 {/if}
 
-<!-- Tab bar -->
-<nav class="tab-bar">
-	<a href="{base}/remote" class="tab"><i class="ti ti-home-2"></i><span>Home</span></a>
-	<a href="{base}/search" class="tab"><i class="ti ti-search"></i><span>Search</span></a>
-	<a href="{base}/browse" class="tab active"><i class="ti ti-music"></i><span>Browse</span></a>
-	<a href="{base}/queue" class="tab"><i class="ti ti-list-numbers"></i><span>Queue</span></a>
-</nav>
+<TabBar />
 
 <!-- Toast -->
 {#if toastMsg}
@@ -577,39 +572,6 @@
 		to {
 			transform: rotate(360deg);
 		}
-	}
-
-	.tab-bar {
-		position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		z-index: 50;
-		display: flex;
-		justify-content: space-around;
-		padding: 8px 0 env(safe-area-inset-bottom, 8px);
-		background: rgba(8, 4, 18, 0.95);
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
-		border-top: 1px solid var(--color-border);
-	}
-	.tab {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 2px;
-		padding: 4px 16px;
-		color: var(--color-faint);
-		text-decoration: none;
-		font-size: 0.6rem;
-		font-weight: 600;
-	}
-	.tab i {
-		font-size: 1.2rem;
-	}
-	.tab:hover,
-	.tab.active {
-		color: var(--color-teal);
 	}
 
 	.toast {

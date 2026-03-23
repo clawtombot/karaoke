@@ -8,6 +8,7 @@
 	import { api } from '$lib/api';
 	import { on } from '$lib/stores/socket.svelte';
 	import { getState } from '$lib/stores/playback.svelte';
+	import TabBar from '$components/TabBar.svelte';
 
 	interface QueueItem {
 		file: string;
@@ -362,6 +363,8 @@
 </div>
 
 <!-- Toast -->
+<TabBar />
+
 {#if toastMsg}
 	<div class="toast glass">
 		{toastMsg}

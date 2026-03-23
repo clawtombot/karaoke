@@ -5,6 +5,7 @@
 	import { base } from '$app/paths';
 	import { api } from '$lib/api';
 	import Cookies from 'js-cookie';
+	import TabBar from '$components/TabBar.svelte';
 
 	interface LocalResult {
 		path: string;
@@ -171,7 +172,7 @@
 	<title>HomeKaraoke — Search</title>
 </svelte:head>
 
-<div class="relative z-10 min-h-screen p-4 pb-20">
+<div class="relative z-10 min-h-screen p-4 pb-24">
 	<!-- Header -->
 	<div class="mb-6 flex items-center gap-3">
 		<a
@@ -322,6 +323,8 @@
 {/if}
 
 <!-- Toast notification -->
+<TabBar />
+
 {#if toastMsg}
 	<div class="toast glass">
 		{toastMsg}

@@ -21,7 +21,7 @@ def _is_admin(request: Request) -> bool:
     return password is None or request.cookies.get("admin") == password
 
 
-@router.get("/browse")
+@router.get("/api/browse")
 async def browse(
     request: Request,
     page: int = 1,
