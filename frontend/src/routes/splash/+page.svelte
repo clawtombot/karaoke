@@ -50,6 +50,7 @@
 		if (!url || url === currentVideoUrl || !video) return;
 
 		currentVideoUrl = url;
+		const fullUrl = `${base}${url}`;
 
 		// Clean up previous
 		if (hlsInstance) {
@@ -60,14 +61,14 @@
 		if (url.endsWith('.m3u8')) {
 			if (Hls.isSupported()) {
 				hlsInstance = new Hls({ startPosition: 0 });
-				hlsInstance.loadSource(url);
+				hlsInstance.loadSource(fullUrl);
 				hlsInstance.attachMedia(video);
 			} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-				video.src = url;
+				video.src = fullUrl;
 				video.load();
 			}
 		} else {
-			video.src = url;
+			video.src = fullUrl;
 			video.load();
 		}
 
@@ -222,7 +223,7 @@
 		{#if !np.now_playing}
 			<video
 				class="bg-video"
-				src="/stream/bg_video"
+				src="{base}/stream/bg_video"
 				muted
 				loop
 				autoplay
