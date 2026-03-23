@@ -538,8 +538,7 @@ class Karaoke:
                 stem_paths = self.get_stem_paths(now_file)
                 if stem_paths:
                     stems_available = True
-                    basename = os.path.basename(now_file)
-                    stem_urls = {name: f"/stems/{basename}/{name}.m4a" for name in STEM_NAMES}
+                    stem_urls = {name: f"/stems/current/{name}.m4a" for name in STEM_NAMES}
                 # Only cache when stems are fully available
                 if stems_available:
                     self._stem_url_cache = (now_file, stems_available, stem_urls)

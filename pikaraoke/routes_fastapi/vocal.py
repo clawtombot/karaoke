@@ -41,19 +41,20 @@ async def get_stem_mix():
     }
 
 
-@router.get("/stems/{filepath:path}")
-async def serve_stem(filepath: str):
-    """Serve a stem M4A file.
+@router.get("/stems/current/{stem}")
+async def serve_stem(stem: str):
+    """Serve a stem M4A file for the currently playing song.
 
-    URL pattern: /stems/{song_basename}/{stem}.m4a
+    URL pattern: /stems/current/{stem}.m4a
     """
     k = get_karaoke()
-    stems_dir = os.path.join(k.download_path, STEMS_SUBDIR)
-    safe_path = os.path.normpath(os.path.join(stems_dir, unquote(filepath)))
+    now_file = k.playback_controller.now_playing_filename
+    if not now_file:
+        return JSONResponse({"error": "Nothing playing"}, status_code=404)
 
-    # Prevent directory traversal
-    if not safe_path.startswith(os.path.normpath(stems_dir) + os.sep):
-        return JSONResponse({"error": "Invalid path"}, status_code=403)
+    basename = os.path.basename(now_file)
+    stems_dir = os.path.join(k.download_path, STEMS_SUBDIR)
+    safe_path = os.path.join(stems_dir, basename, stem)
 
     if not os.path.isfile(safe_path):
         return JSONResponse({"error": "Stem not found"}, status_code=404)
