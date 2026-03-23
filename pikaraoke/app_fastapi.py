@@ -57,18 +57,30 @@ async def lifespan(app: FastAPI):
 
     # When launched via `uvicorn pikaraoke.app_fastapi:combined`, sys.argv contains
     # uvicorn's args (e.g. "--host", "0.0.0.0") which confuse pikaraoke's argparse.
-    # Strip everything before the first pikaraoke-recognized arg.
+    # Keep only recognized pikaraoke flags AND their following value tokens.
+    _RECOGNIZED = (
+        "--hide", "--show", "--high", "--normalize", "--splash",
+        "--download", "--vocal", "--disable", "--enable", "--logo",
+        "--prefer", "--url", "--admin", "--bg-", "--config",
+        "--preferred", "--streaming", "--ytdl", "--limit",
+        "--avsync", "--cdg", "--buffer", "--dolphly",
+        "--youtubedl", "--window", "--external", "--log",
+        "-p", "-d", "-v", "-n", "-s", "-t", "-c", "-b", "-l", "-u",
+    )
     original_argv = _sys.argv[:]
-    _sys.argv = [_sys.argv[0]] + [
-        a for a in _sys.argv[1:]
-        if a.startswith(("--hide", "--show", "--high", "--normalize", "--splash",
-                         "--download", "--vocal", "--disable", "--enable", "--logo",
-                         "--prefer", "--url", "--admin", "--bg-", "--config",
-                         "--preferred", "--streaming", "--ytdl", "--limit",
-                         "--avsync", "--cdg", "--buffer", "--dolphly",
-                         "--youtubedl", "--window", "--external", "--log",
-                         "-p", "-d", "-v", "-n", "-s", "-t", "-c", "-b", "-l", "-u"))
-    ]
+    raw = _sys.argv[1:]
+    filtered: list[str] = []
+    i = 0
+    while i < len(raw):
+        arg = raw[i]
+        if arg.startswith(_RECOGNIZED):
+            filtered.append(arg)
+            # Consume all following non-flag tokens as values for this arg
+            while i + 1 < len(raw) and not raw[i + 1].startswith("-"):
+                i += 1
+                filtered.append(raw[i])
+        i += 1
+    _sys.argv = [_sys.argv[0]] + filtered
 
     args = parse_pikaraoke_args()
 
@@ -206,6 +218,13 @@ fastapi_app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
+# Base path — read from env so API routes align with the Svelte build prefix.
+# Set BASE_PATH=/karaoke when building the frontend and running the server.
+# Leave empty to run at root (classic pikaraoke behaviour).
+# ---------------------------------------------------------------------------
+_BASE_PATH = os.environ.get("BASE_PATH", "/karaoke").rstrip("/")
+
+# ---------------------------------------------------------------------------
 # Register API routers
 # ---------------------------------------------------------------------------
 from pikaraoke.routes_fastapi.admin import router as admin_router
@@ -241,7 +260,7 @@ for r in [
     files_router,
     metadata_router,
 ]:
-    fastapi_app.include_router(r)
+    fastapi_app.include_router(r, prefix=_BASE_PATH)
 
 # Socket.IO events
 setup_socket_events(sio)
@@ -256,42 +275,30 @@ if os.path.isdir(_legacy_static):
     fastapi_app.mount("/static", StaticFiles(directory=_legacy_static), name="legacy-static")
 
 # Serve Svelte build output (production)
-# The SPA is built with BASE_PATH=/karaoke so HTML references /karaoke/_app/...
-# Behind proxy: /karaoke/_app/... → stripped to /_app/... → served from dist/_app/
-# Direct access: /karaoke/_app/... → needs mount at /karaoke/_app/
 _frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.isdir(_frontend_dist):
-    _base_path = os.environ.get("BASE_PATH", "")
-
-    # Mount _app at both /_app and /{base}/_app to handle proxy and direct access
+    # Mount SPA assets at both prefixed and bare /_app paths
     _app_dir = os.path.join(_frontend_dist, "_app")
     if os.path.isdir(_app_dir):
         fastapi_app.mount("/_app", StaticFiles(directory=_app_dir), name="spa-app")
-        if _base_path:
-            fastapi_app.mount(f"{_base_path}/_app", StaticFiles(directory=_app_dir), name="spa-app-prefixed")
+        if _BASE_PATH:
+            fastapi_app.mount(f"{_BASE_PATH}/_app", StaticFiles(directory=_app_dir), name="spa-app-prefixed")
 
-    # Catch-all for SPA client-side routing
+    # Catch-all — static file first, then index.html SPA fallback
     @fastapi_app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        """Serve Svelte SPA — static files first, then index.html fallback."""
-        # Strip base path prefix if present
-        clean_path = full_path
-        if _base_path and clean_path.startswith(_base_path.lstrip("/")):
-            clean_path = clean_path[len(_base_path.lstrip("/")):]
-            clean_path = clean_path.lstrip("/")
-
-        # Try to serve the file directly from dist
+        clean_path = full_path.removeprefix(_BASE_PATH.lstrip("/")).lstrip("/") if _BASE_PATH else full_path
         file_path = os.path.join(_frontend_dist, clean_path) if clean_path else ""
         if clean_path and os.path.isfile(file_path):
             return FileResponse(file_path)
-
-        # SPA fallback — return index.html for all routes
         return FileResponse(os.path.join(_frontend_dist, "index.html"))
 
 # ---------------------------------------------------------------------------
 # Combined ASGI app (Socket.IO wraps FastAPI)
+# Socket.IO path must match the `path` option in the Svelte socket.io-client.
 # ---------------------------------------------------------------------------
-combined = socketio.ASGIApp(sio, fastapi_app)
+_sio_path = f"{_BASE_PATH}/socket.io" if _BASE_PATH else "/socket.io"
+combined = socketio.ASGIApp(sio, fastapi_app, socketio_path=_sio_path)
 
 
 # ---------------------------------------------------------------------------
