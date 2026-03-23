@@ -1,0 +1,151 @@
+@import 'tailwindcss';
+
+/* ══════════════════════════════════════════════════════════════════════
+   PRISMA — Design tokens extracted from the original pikaraoke theme
+   These feed into Tailwind via @theme and are swappable for theming.
+   ══════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  --color-bg: #0d0618;
+  --color-bg2: #080412;
+  --color-surface: rgba(255, 255, 255, 0.06);
+  --color-surface2: rgba(255, 255, 255, 0.09);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border2: rgba(255, 255, 255, 0.14);
+  --color-purple: #7c3aed;
+  --color-teal: #00d2ff;
+  --color-pink: #ec4899;
+  --color-green: #22c55e;
+  --color-amber: #f59e0b;
+  --color-text: #f0ecff;
+  --color-dim: rgba(240, 236, 255, 0.5);
+  --color-faint: rgba(240, 236, 255, 0.22);
+
+  --font-display: 'Syne', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────── */
+@layer base {
+  html, body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    margin: 0;
+  }
+
+  /* Ambient orb background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 700px 600px at -5% -5%, rgba(124, 58, 237, 0.28) 0%, transparent 55%),
+      radial-gradient(ellipse 500px 400px at 105% 100%, rgba(0, 210, 255, 0.18) 0%, transparent 55%),
+      radial-gradient(ellipse 400px 300px at 55% 110%, rgba(236, 72, 153, 0.10) 0%, transparent 55%),
+      radial-gradient(ellipse 300px 250px at 95% 5%, rgba(124, 58, 237, 0.12) 0%, transparent 55%);
+  }
+
+  /* LED strip at top */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    z-index: 9999;
+    background: linear-gradient(90deg, transparent 0%, #7c3aed 25%, #a855f7 45%, #00d2ff 75%, transparent 100%);
+    box-shadow: 0 0 18px rgba(0, 210, 255, 0.7), 0 0 36px rgba(124, 58, 237, 0.5);
+  }
+}
+
+/* ── Glass components ─────────────────────────────────────────────── */
+@layer components {
+  .glass {
+    background: rgba(13, 6, 24, 0.90);
+    border: 1px solid rgba(124, 58, 237, 0.22);
+    border-radius: 16px;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(124, 58, 237, 0.08);
+  }
+
+  .glass-light {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, var(--color-purple), var(--color-teal));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .glow-purple {
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.35);
+  }
+
+  .glow-teal {
+    box-shadow: 0 0 16px rgba(0, 210, 255, 0.4);
+  }
+}
+
+/* ── Karaoke-specific: word highlighting ──────────────────────────── */
+@layer components {
+  .lyric-word {
+    color: var(--color-faint);
+    display: inline-block;
+    transition: none;
+  }
+
+  .lyric-word.sung {
+    color: var(--color-text);
+  }
+
+  .lyric-word.active {
+    background: linear-gradient(
+      90deg,
+      var(--color-teal) 0%,
+      var(--color-teal) var(--progress, 0%),
+      var(--color-faint) var(--progress, 0%),
+      var(--color-faint) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Ruby/romaji annotations above kanji */
+  ruby {
+    ruby-position: over;
+  }
+  rt {
+    font-size: 0.55em;
+    color: var(--color-dim);
+    font-family: var(--font-mono);
+  }
+}
+
+/* ── Pitch graph glass container ──────────────────────────────────── */
+@layer components {
+  .pitch-container {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: rgba(13, 6, 24, 0.4);
+    border: 1px solid rgba(124, 58, 237, 0.2);
+    border-radius: 12px;
+  }
+}
+
+/* ── Fonts ─────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
