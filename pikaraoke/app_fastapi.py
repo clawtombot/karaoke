@@ -143,41 +143,35 @@ async def lifespan(app: FastAPI):
     app.state.boot_id = str(int(__import__("time").time()))
     app.state.thread_pool = thread_pool
 
-    # Wire download events to SocketIO broadcasts
-    async def _broadcast_download(event_name):
-        await sio.emit(event_name, namespace="/")
+    # Upgrade yt-dlp in background
+    loop = asyncio.get_running_loop()
 
-    k.events.on("download_started", lambda: asyncio.ensure_future(_broadcast_download("download_started")))
-    k.events.on("download_stopped", lambda: asyncio.ensure_future(_broadcast_download("download_stopped")))
-    k.events.on(
-        "queue_update",
-        lambda: asyncio.ensure_future(sio.emit("queue_update", namespace="/")),
-    )
-    k.events.on(
-        "now_playing_update",
-        lambda: asyncio.ensure_future(sio.emit("now_playing", k.get_now_playing(), namespace="/")),
-    )
-    k.events.on(
-        "playback_started",
-        lambda: asyncio.ensure_future(sio.emit("now_playing", k.get_now_playing(), namespace="/")),
-    )
-    k.events.on(
-        "song_ended",
-        lambda: asyncio.ensure_future(sio.emit("now_playing", k.get_now_playing(), namespace="/")),
-    )
-    k.events.on(
-        "skip_requested",
-        lambda: k.playback_controller.skip(False),
-    )
+    # Store event loop reference for thread-safe SocketIO emits from run loop thread
+    k._loop = loop
+
+    # Thread-safe emit helper — events fire from both async routes and sync run loop
+    def _safe_emit(event, data=None, **kwargs):
+        coro = sio.emit(event, data, **kwargs)
+        try:
+            asyncio.get_running_loop()
+            asyncio.ensure_future(coro)
+        except RuntimeError:
+            if loop.is_running():
+                asyncio.run_coroutine_threadsafe(coro, loop)
+
+    # Wire events to SocketIO broadcasts (thread-safe)
+    k.events.on("download_started", lambda: _safe_emit("download_started", namespace="/"))
+    k.events.on("download_stopped", lambda: _safe_emit("download_stopped", namespace="/"))
+    k.events.on("queue_update", lambda: _safe_emit("queue_update", namespace="/"))
+    k.events.on("now_playing_update", lambda: _safe_emit("now_playing", k.get_now_playing(), namespace="/"))
+    k.events.on("playback_started", lambda: _safe_emit("now_playing", k.get_now_playing(), namespace="/"))
+    k.events.on("song_ended", lambda: _safe_emit("now_playing", k.get_now_playing(), namespace="/"))
+    k.events.on("skip_requested", lambda: k.playback_controller.skip(False))
     k.events.on(
         "notification",
-        lambda msg, cat="info": asyncio.ensure_future(
-            sio.emit("notification", f"{msg}::is-{cat}", namespace="/")
-        ),
+        lambda msg, cat="info": _safe_emit("notification", f"{msg}::is-{cat}", namespace="/"),
     )
 
-    # Upgrade yt-dlp in background
-    loop = asyncio.get_event_loop()
     loop.run_in_executor(thread_pool, upgrade_youtubedl)
 
     # Start karaoke run loop in a background thread (it uses time.sleep internally)

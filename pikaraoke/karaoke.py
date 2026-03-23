@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import socket
@@ -198,6 +199,7 @@ class Karaoke:
         self.bg_video_path = self.default_bg_video_path if bg_video_path is None else bg_video_path
         self.streaming_format = streaming_format
         self.socketio = socketio
+        self._loop: asyncio.AbstractEventLoop | None = None  # set by lifespan
         self.url_override = url
         self.url = self.get_url()
 
@@ -231,7 +233,7 @@ class Karaoke:
         self.events.on("notification", self.log_and_send)
         self.events.on(
             "queue_update",
-            lambda: self.socketio.emit("queue_update", namespace="/") if self.socketio else None,
+            lambda: self._emit("queue_update", namespace="/"),
         )
         self.events.on("now_playing_update", self.update_now_playing_socket)
         self.events.on("playback_started", self.update_now_playing_socket)
@@ -399,8 +401,7 @@ class Karaoke:
                 return
             self.now_playing_notification = message + "::is-" + color
             # Emit notification via SocketIO for event-driven architecture
-            if self.socketio:
-                self.socketio.emit("notification", self.now_playing_notification, namespace="/")
+            self._emit("notification", self.now_playing_notification, namespace="/")
 
     def log_and_send(self, message: str, category: str = "info") -> None:
         """Log a message and send it as a notification.
@@ -580,10 +581,30 @@ class Karaoke:
             "boot_id": self.boot_id,
         }
 
+    def _emit(self, event: str, data: Any = None, **kwargs) -> None:
+        """Thread-safe SocketIO emit — works from both async and sync contexts.
+
+        Never raises — safe to call from the blocking run loop thread.
+        """
+        if not self.socketio:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+            # Already in async context — schedule directly
+            asyncio.ensure_future(self.socketio.emit(event, data, **kwargs), loop=loop)
+        except RuntimeError:
+            # Called from sync thread (run loop) — schedule on main loop
+            if self._loop and self._loop.is_running():
+                try:
+                    asyncio.run_coroutine_threadsafe(
+                        self.socketio.emit(event, data, **kwargs), self._loop
+                    )
+                except Exception:
+                    pass  # Best-effort emit
+
     def update_now_playing_socket(self) -> None:
         """Emit now_playing state change via SocketIO."""
-        if self.socketio:
-            self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
+        self._emit("now_playing", self.get_now_playing(), namespace="/")
 
     def run(self) -> None:
         """Main run loop - processes queue and plays songs.
