@@ -52,9 +52,28 @@ thread_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="karaoke-work
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize Karaoke engine on startup, clean up on shutdown."""
+    import sys as _sys
     from pikaraoke.karaoke import Karaoke
 
+    # When launched via `uvicorn pikaraoke.app_fastapi:combined`, sys.argv contains
+    # uvicorn's args (e.g. "--host", "0.0.0.0") which confuse pikaraoke's argparse.
+    # Strip everything before the first pikaraoke-recognized arg.
+    original_argv = _sys.argv[:]
+    _sys.argv = [_sys.argv[0]] + [
+        a for a in _sys.argv[1:]
+        if a.startswith(("--hide", "--show", "--high", "--normalize", "--splash",
+                         "--download", "--vocal", "--disable", "--enable", "--logo",
+                         "--prefer", "--url", "--admin", "--bg-", "--config",
+                         "--preferred", "--streaming", "--ytdl", "--limit",
+                         "--avsync", "--cdg", "--buffer", "--dolphly",
+                         "--youtubedl", "--window", "--external", "--log",
+                         "-p", "-d", "-v", "-n", "-s", "-t", "-c", "-b", "-l", "-u"))
+    ]
+
     args = parse_pikaraoke_args()
+
+    # Restore original argv
+    _sys.argv = original_argv
 
     # --- Logging ---
     logging.basicConfig(
