@@ -94,6 +94,18 @@ Never commit to `master` directly.
 
 PRs must include a test plan: a minimal checklist targeting only the changes made, enabling quick manual verification.
 
+## WebSocket Event Checklist
+
+When adding a new real-time feature synced between remote and TV:
+
+1. **Remote page** (`routes/remote/+page.svelte`): `emit('event_name', value)` + `saveSongConfig()` if persistent
+2. **Server relay** (`routes_fastapi/socket_events.py`): `@sio.on("event_name")` handler that calls `sio.emit("event_name", value, skip_sid=sid)`
+3. **Splash/TV page** (`routes/splash/+page.svelte`): `on('event_name', handler)` in the socket listeners array
+4. **Config save** (`saveSongConfig` in remote): include in the JSON body
+5. **Config restore** (remote song change handler): read from `cfg` and `emit()` to sync TV
+
+Missing ANY step = silent failure. Always grep for the existing pattern (e.g. `pitch_noise_gate`) and replicate all 5 steps.
+
 ## What NOT to Do
 
 - Add unrequested features
