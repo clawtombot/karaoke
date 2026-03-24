@@ -80,6 +80,7 @@ class MockKaraoke:
     def __init__(self, tmp_path):
         self.song_manager = MockSongManager()
         self._socketio = None
+        self._loop = None
         self.events = EventSystem()
         self.preferences = PreferenceManager(
             config_file_path=str(tmp_path / "config.ini"), target=self
@@ -90,6 +91,7 @@ class MockKaraoke:
         self.now_playing_notification = None
         self.vocal_splitter_enabled = False
         self.stem_mix = {s: True for s in STEM_NAMES}
+        self.boot_id = "test"
 
         # Set preferences that differ from defaults
         self.preferences.set("enable_fair_queue", True)
@@ -121,6 +123,11 @@ class MockKaraoke:
     def socketio(self, value):
         """Set the socketio instance."""
         self._socketio = value
+
+    def _emit(self, event, data=None, **kwargs):
+        """Synchronous emit for testing — real Karaoke._emit uses asyncio."""
+        if self._socketio:
+            self._socketio.emit(event, data, **kwargs)
 
     # Import the actual methods we want to test
     from pikaraoke.karaoke import Karaoke

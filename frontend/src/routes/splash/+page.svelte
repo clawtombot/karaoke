@@ -351,7 +351,7 @@
 	}
 
 	function onVideoPlay() {
-		emit('start_song');
+		if (isMaster) emit('start_song');
 		// Stems may have loaded while video was buffering — activate now
 		activateStems();
 	}

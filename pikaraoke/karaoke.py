@@ -235,9 +235,8 @@ class Karaoke:
             "queue_update",
             lambda: self._emit("queue_update", namespace="/"),
         )
-        self.events.on("now_playing_update", self.update_now_playing_socket)
-        self.events.on("playback_started", self.update_now_playing_socket)
-        self.events.on("song_ended", self.update_now_playing_socket)
+        # now_playing_update, playback_started, song_ended → wired in app_fastapi lifespan
+        # (via _safe_emit for thread-safety). Don't duplicate here.
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
 
         # Initialize queue manager

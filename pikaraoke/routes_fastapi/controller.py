@@ -20,11 +20,10 @@ async def skip():
 async def pause():
     """Toggle pause/resume playback."""
     k = get_karaoke()
-    if k.playback_controller.is_paused:
-        await broadcast_event("play")
-    else:
-        await broadcast_event("pause")
+    # Flip state FIRST so the now_playing event (emitted by pause()) carries correct is_paused
+    was_paused = k.playback_controller.is_paused
     k.playback_controller.pause()
+    await broadcast_event("play" if was_paused else "pause")
     return {"ok": True}
 
 

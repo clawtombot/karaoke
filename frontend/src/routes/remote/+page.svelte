@@ -25,6 +25,8 @@
 
 	function syncFromServer(positionSec: number) {
 		if (isSeeking || performance.now() < seekCooldown) return;
+		// Don't override paused state with stale position events
+		if (np.is_paused) return;
 		lastServerPos = positionSec;
 		lastServerTime = performance.now();
 		isPlaying = true;
