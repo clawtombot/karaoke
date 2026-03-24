@@ -95,8 +95,10 @@
 		stemsInitiated = true;
 		const gen = stemGeneration; // Capture current generation
 		stemMixer.init();
+		// Cache-bust stem URLs with song file to prevent stale audio from previous song
+		const cacheBust = encodeURIComponent(np.now_playing_file ?? String(gen));
 		const prefixedUrls = Object.fromEntries(
-			Object.entries(np.stem_urls).map(([k, v]) => [k, `${base}${v}`])
+			Object.entries(np.stem_urls).map(([k, v]) => [k, `${base}${v}?s=${cacheBust}`])
 		);
 		stemMixer.loadStems(prefixedUrls).then((ok) => {
 			// Ignore if a new song started while we were loading
@@ -104,6 +106,9 @@
 			if (ok) {
 				stemsReady = true;
 				activateStems();
+			} else if (video) {
+				// Stems failed to load — fall back to video audio
+				video.volume = np.volume;
 			}
 		});
 	}
@@ -152,7 +157,8 @@
 
 				// Wait for manifest before playing (prevents race condition)
 				hls.on(Hls.Events.MANIFEST_PARSED, () => {
-					video.volume = np.volume;
+					// Start video muted if stems are available — stems are the primary audio
+					video.volume = (np.stems_available && np.stem_urls) ? 0 : np.volume;
 					tryPlay();
 				});
 
@@ -185,13 +191,13 @@
 				// Safari native HLS
 				video.src = fullUrl;
 				video.load();
-				video.volume = np.volume;
+				video.volume = (np.stems_available && np.stem_urls) ? 0 : np.volume;
 				tryPlay();
 			}
 		} else {
 			video.src = fullUrl;
 			video.load();
-			video.volume = np.volume;
+			video.volume = (np.stems_available && np.stem_urls) ? 0 : np.volume;
 			if (resumePos > 0) {
 				video.addEventListener('loadedmetadata', () => { video.currentTime = resumePos; }, { once: true });
 			}
