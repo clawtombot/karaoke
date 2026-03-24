@@ -63,8 +63,10 @@ class LyricsManager:
         if lyrics is None:
             return None
 
-        # 5. Estimate word timing if needed
-        if not lyrics.has_word_timing:
+        # 5. Estimate word timing only for sources with partial word data (YRC).
+        # Line-synced sources (lrclib, netease LRC) stay line-level — estimated
+        # word timing looks wrong because the distribution is artificial.
+        if not lyrics.has_word_timing and any(line.words for line in lyrics.lines):
             self._add_word_timing(lyrics)
 
         # 6. Add romanization if CJK

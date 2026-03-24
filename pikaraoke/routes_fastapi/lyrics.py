@@ -142,13 +142,8 @@ async def select_lyrics(body: SelectLyricsBody):
     if lyrics is None:
         return JSONResponse({"error": "Failed to fetch lyrics for candidate"}, status_code=404)
 
-    # Word timing estimation if needed
-    if not any(line.words for line in lyrics.lines):
-        from pikaraoke.lib.lyrics.word_estimator import estimate_word_timing
-        for line in lyrics.lines:
-            if not line.words:
-                line.words = estimate_word_timing(line)
-        lyrics.has_word_timing = True
+    # Only estimate word timing if the source has partial word data (YRC mix).
+    # Pure line-synced sources (lrclib, netease LRC) stay line-level.
 
     # Save to cache under song's key
     cache_dir = os.path.join(k.download_path, ".lyrics_cache")
