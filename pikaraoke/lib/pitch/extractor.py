@@ -50,6 +50,7 @@ def _smooth_pitch(notes: list[PitchNote], window_ms: float = 150) -> list[PitchN
             hz=round(float(smoothed[i]), 2),
             midi=round(69 + 12 * np.log2(float(smoothed[i]) / 440)),
             voiced=n.voiced,
+            amp=n.amp,
         )
         for i, n in enumerate(notes)
     ]

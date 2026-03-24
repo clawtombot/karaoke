@@ -385,6 +385,8 @@
 		singerPitch;
 		referenceNotes;
 		visible;
+		noiseGate;
+		offsetSec;
 		render();
 	});
 
