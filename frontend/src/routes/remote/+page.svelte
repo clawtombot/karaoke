@@ -256,7 +256,7 @@
 
 		<!-- Lyrics (album art replacement) -->
 		<div class="lyrics-hero">
-			<LyricsPanel {currentTimeMs} />
+			<LyricsPanel {currentTimeMs} onSeek={(sec) => fetch(api('/seek/') + sec)} />
 		</div>
 
 		<!-- Song info -->

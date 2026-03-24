@@ -15,7 +15,7 @@
 		type LyricsLine,
 	} from '$lib/stores/lyrics.svelte';
 
-	let { currentTimeMs = 0 }: { currentTimeMs: number } = $props();
+	let { currentTimeMs = 0, onSeek = null }: { currentTimeMs: number; onSeek: ((timeSec: number) => void) | null } = $props();
 
 	const lyrics = $derived(getLyrics());
 	const lineIdx = $derived(getCurrentLineIndex());
@@ -88,12 +88,15 @@
 		<div class="lines-list">
 			{#each lyrics.lines as line, idx}
 				{@const state = lineState(idx)}
+				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 				<div
 					class="lyrics-line"
 					class:current={state === 'current'}
 					class:past={state === 'past'}
 					class:future={state === 'future'}
+					class:clickable={!!onSeek}
 					bind:this={lineRefs[idx]}
+					onclick={() => onSeek?.(line.start / 1000)}
 				>
 					{#if line.words && line.words.length > 0}
 						<div class="line-text">
@@ -178,6 +181,15 @@
 
 	.lyrics-line.future {
 		opacity: 0.35;
+	}
+
+	.lyrics-line.clickable {
+		cursor: pointer;
+	}
+	.lyrics-line.clickable:active {
+		opacity: 1 !important;
+		background: rgba(124, 58, 237, 0.1);
+		border-radius: 8px;
 	}
 
 	.line-text {
