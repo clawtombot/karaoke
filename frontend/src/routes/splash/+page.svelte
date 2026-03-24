@@ -60,27 +60,28 @@
 
 	// Start stems when video actually begins playing
 	function activateStems() {
-		if (stemsReady && video && !video.paused) {
-			stemMixer.play(video.currentTime);
-			stemMixer.applyMix(np.stem_mix, np.volume);
+		if (!stemsReady || !video || video.paused || !stemsInitiated) return;
+		const gen = stemGeneration; // Capture to guard async callbacks
+		stemMixer.play(video.currentTime);
+		stemMixer.applyMix(np.stem_mix, np.volume);
 
-			// Mute video as soon as AudioContext is ready (immediate or deferred).
-			// This prevents dual audio — stems + video playing simultaneously.
-			stemMixer.onReady(() => {
-				if (video) {
-					video.volume = 0;
-					video.muted = false;
-				}
-			});
-
-			if (!stemMixer.isReady()) {
-				// AudioContext suspended (no user gesture yet) — keep video audible
-				// until stems activate via onReady callback above
+		// Mute video as soon as AudioContext is ready (immediate or deferred).
+		// This prevents dual audio — stems + video playing simultaneously.
+		stemMixer.onReady(() => {
+			if (gen !== stemGeneration) return; // Stale — song changed
+			if (video) {
+				video.volume = 0;
 				video.muted = false;
-				video.volume = np.volume;
 			}
-			stemsReady = false;
+		});
+
+		if (!stemMixer.isReady()) {
+			// AudioContext suspended (no user gesture yet) — keep video audible
+			// until stems activate via onReady callback above
+			video.muted = false;
+			video.volume = np.volume;
 		}
+		stemsReady = false;
 	}
 
 	// Load stems from current state and activate when ready
@@ -421,7 +422,7 @@
 		stemMixer.init();
 
 		// If stems are active and AudioContext just became ready, swap to stem audio
-		if (stemMixer.isActive() && stemMixer.isReady() && video) {
+		if (stemsInitiated && stemMixer.isActive() && stemMixer.isReady() && video) {
 			video.volume = 0;
 			stemMixer.syncToVideo(video.currentTime);
 		}
