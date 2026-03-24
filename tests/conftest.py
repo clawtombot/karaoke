@@ -2,7 +2,7 @@
 
 import pytest
 
-from pikaraoke.constants import STEM_NAMES
+from pikaraoke.constants import ALL_STEM_NAMES
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
@@ -90,7 +90,7 @@ class MockKaraoke:
         self.running = True
         self.now_playing_notification = None
         self.vocal_splitter_enabled = False
-        self.stem_mix = {s: True for s in STEM_NAMES}
+        self.stem_mix = {s: True for s in ALL_STEM_NAMES}
         self.boot_id = "test"
 
         # Set preferences that differ from defaults

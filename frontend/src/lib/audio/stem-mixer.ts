@@ -1,10 +1,22 @@
 /**
  * Web Audio API stem mixer — replaces the old HTMLAudioElement approach.
  * Uses AudioContext + GainNode per stem for sample-accurate sync and volume control.
+ *
+ * Supports dynamic stem sets: 6-stem (legacy) or 7-stem (with lead/backing vocals).
  */
 
-export const STEM_NAMES = ['drums', 'bass', 'other', 'vocals', 'guitar', 'piano'] as const;
-export type StemName = (typeof STEM_NAMES)[number];
+export const STEM_NAMES_LEGACY = ['drums', 'bass', 'other', 'vocals', 'guitar', 'piano'] as const;
+export const STEM_NAMES_SPLIT = [
+	'drums',
+	'bass',
+	'other',
+	'lead_vocals',
+	'backing_vocals',
+	'guitar',
+	'piano',
+] as const;
+
+export type StemName = string;
 
 interface StemChannel {
 	source: AudioBufferSourceNode | null;
@@ -14,7 +26,7 @@ interface StemChannel {
 }
 
 let ctx: AudioContext | null = null;
-let channels: Map<StemName, StemChannel> = new Map();
+let channels: Map<string, StemChannel> = new Map();
 let masterGain: GainNode | null = null;
 let playing = false;
 let startTime = 0; // AudioContext time when playback started
@@ -30,7 +42,7 @@ export function isReady(): boolean {
 	return ctx?.state === 'running';
 }
 
-/** Initialize the audio context and gain nodes. */
+/** Initialize the audio context. Channels are created dynamically in loadStems. */
 export function init() {
 	if (ctx) {
 		// Already initialized — try to resume (needs user gesture context)
@@ -42,12 +54,6 @@ export function init() {
 	ctx = new AudioContext();
 	masterGain = ctx.createGain();
 	masterGain.connect(ctx.destination);
-
-	for (const name of STEM_NAMES) {
-		const gain = ctx.createGain();
-		gain.connect(masterGain);
-		channels.set(name, { source: null, gain, buffer: null, loaded: false });
-	}
 
 	// Fire ready callbacks when AudioContext transitions to 'running'
 	ctx.onstatechange = () => {
@@ -72,13 +78,22 @@ export function onReady(cb: () => void) {
 	}
 }
 
-/** Load stem audio files from URLs. */
+/** Load stem audio files from URLs. Creates channels dynamically based on what the server provides. */
 export async function loadStems(stemUrls: Record<string, string>): Promise<boolean> {
 	if (!ctx || !masterGain) init();
 	if (!ctx) return false;
 
+	// Create channels for whatever stems the server provides
+	for (const name of Object.keys(stemUrls)) {
+		if (!channels.has(name)) {
+			const gain = ctx.createGain();
+			gain.connect(masterGain!);
+			channels.set(name, { source: null, gain, buffer: null, loaded: false });
+		}
+	}
+
 	const loadPromises = Object.entries(stemUrls).map(async ([name, url]) => {
-		const ch = channels.get(name as StemName);
+		const ch = channels.get(name);
 		if (!ch) return;
 		try {
 			const response = await fetch(url);
@@ -93,7 +108,7 @@ export async function loadStems(stemUrls: Record<string, string>): Promise<boole
 
 	await Promise.all(loadPromises);
 	const loadedCount = [...channels.values()].filter((ch) => ch.loaded).length;
-	console.log(`[stem-mixer] Loaded ${loadedCount}/${STEM_NAMES.length} stems`);
+	console.log(`[stem-mixer] Loaded ${loadedCount}/${Object.keys(stemUrls).length} stems`);
 	return loadedCount > 0;
 }
 
@@ -150,7 +165,7 @@ export function getCurrentTime(): number {
 }
 
 /** Set volume for a specific stem (0-1). */
-export function setStemVolume(stem: StemName, volume: number) {
+export function setStemVolume(stem: string, volume: number) {
 	const ch = channels.get(stem);
 	if (ch) {
 		ch.gain.gain.setTargetAtTime(volume, ctx?.currentTime ?? 0, 0.02);
@@ -158,14 +173,14 @@ export function setStemVolume(stem: StemName, volume: number) {
 }
 
 /** Toggle a stem on/off. */
-export function toggleStem(stem: StemName, enabled: boolean, volume: number = 1) {
+export function toggleStem(stem: string, enabled: boolean, volume: number = 1) {
 	setStemVolume(stem, enabled ? volume : 0);
 }
 
 /** Apply a full mix state. */
 export function applyMix(mix: Record<string, boolean>, volume: number = 1) {
 	for (const [stem, enabled] of Object.entries(mix)) {
-		toggleStem(stem as StemName, enabled, volume);
+		toggleStem(stem, enabled, volume);
 	}
 }
 
@@ -173,13 +188,6 @@ export function applyMix(mix: Record<string, boolean>, volume: number = 1) {
 export function setMasterVolume(volume: number) {
 	if (masterGain && ctx) {
 		masterGain.gain.setTargetAtTime(volume, ctx.currentTime, 0.02);
-	}
-	// Also update individual stem volumes for mix state
-	for (const [name, ch] of channels) {
-		if (ch.gain) {
-			// Only adjust stems that are "on" in the mix
-			// The gain was already set by applyMix
-		}
 	}
 }
 

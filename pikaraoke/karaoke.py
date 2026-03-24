@@ -15,7 +15,7 @@ import qrcode
 from flask_babel import _
 from qrcode.image.pure import PyPNGImage
 
-from pikaraoke.constants import STEM_NAMES, STEMS_SUBDIR, stems_complete
+from pikaraoke.constants import ALL_STEM_NAMES, STEM_NAMES, VOCAL_SPLIT_STEMS, STEMS_SUBDIR, stems_complete
 from pikaraoke.lib.download_manager import DownloadManager
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import (
@@ -262,7 +262,7 @@ class Karaoke:
 
         # Stem splitter setup
         self.boot_id = str(int(time.time()))
-        self.stem_mix = {s: True for s in STEM_NAMES}
+        self.stem_mix = {s: True for s in ALL_STEM_NAMES}
         if vocal_splitter:
             self._init_stem_splitter()
 
@@ -294,14 +294,18 @@ class Karaoke:
         if not os.path.isdir(stem_dir) or not stems_complete(stem_dir):
             return None
 
-        return {name: os.path.join(stem_dir, f"{name}.m4a") for name in STEM_NAMES}
+        # Use lead/backing vocals if available, otherwise fall back to combined vocals
+        names = list(ALL_STEM_NAMES) if all(
+            os.path.isfile(os.path.join(stem_dir, f"{s}.m4a")) for s in VOCAL_SPLIT_STEMS
+        ) else list(STEM_NAMES)
+        return {name: os.path.join(stem_dir, f"{name}.m4a") for name in names}
 
     def toggle_stem(self, stem: str) -> bool:
         """Toggle a stem on/off in the mix.
 
         Returns True if toggled, False if invalid stem name.
         """
-        if stem not in STEM_NAMES:
+        if stem not in ALL_STEM_NAMES and stem not in STEM_NAMES:
             return False
         self.stem_mix[stem] = not self.stem_mix[stem]
         logging.info("Stem %s toggled to %s", stem, self.stem_mix[stem])
@@ -520,7 +524,7 @@ class Karaoke:
         """Reset all now playing state to defaults."""
         self.playback_controller.reset_now_playing()
         self.volume = self.preferences.get_or_default("volume")
-        self.stem_mix = {s: True for s in STEM_NAMES}
+        self.stem_mix = {s: True for s in ALL_STEM_NAMES}
         self._stem_url_cache = (None, None, None)
         self.update_now_playing_socket()
 
@@ -549,7 +553,7 @@ class Karaoke:
                 stem_paths = self.get_stem_paths(now_file)
                 if stem_paths:
                     stems_available = True
-                    stem_urls = {name: f"/stems/current/{name}.m4a" for name in STEM_NAMES}
+                    stem_urls = {name: f"/stems/current/{name}.m4a" for name in stem_paths}
                 # Only cache when stems are fully available
                 if stems_available:
                     self._stem_url_cache = (now_file, stems_available, stem_urls)
@@ -562,7 +566,8 @@ class Karaoke:
                     STEMS_SUBDIR,
                     basename,
                 )
-                total = len(STEM_NAMES)
+                all_stems = list(STEM_NAMES) + list(VOCAL_SPLIT_STEMS)
+                total = len(all_stems)
                 ready = 0
                 has_error = False
                 if os.path.isdir(stem_dir):
@@ -570,7 +575,7 @@ class Karaoke:
                         os.path.join(stem_dir, ".error"),
                     )
                     ready = sum(
-                        1 for s in STEM_NAMES if os.path.isfile(os.path.join(stem_dir, f"{s}.m4a"))
+                        1 for s in all_stems if os.path.isfile(os.path.join(stem_dir, f"{s}.m4a"))
                     )
                 stem_progress = {
                     "ready": ready,

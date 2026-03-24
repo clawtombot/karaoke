@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * Compact stem mixer — icon-only toggle row + quick presets.
-	 * Used on both phone remote and splash screen overlay.
+	 * Dynamically adapts to 6-stem (legacy) or 7-stem (lead/backing split) layouts.
 	 */
 	import { getState } from '$lib/stores/playback.svelte';
 
@@ -9,14 +9,25 @@
 
 	const np = $derived(getState());
 
-	const stems = [
+	const allStems = [
 		{ name: 'drums', iconClass: 'fa-solid fa-drum', label: 'Drums' },
 		{ name: 'bass', iconClass: 'ti ti-wave-sine', label: 'Bass' },
 		{ name: 'other', iconClass: 'ti ti-music', label: 'Other' },
 		{ name: 'vocals', iconClass: 'fa-solid fa-microphone', label: 'Vocals' },
+		{ name: 'lead_vocals', iconClass: 'fa-solid fa-microphone', label: 'Lead' },
+		{ name: 'backing_vocals', iconClass: 'fa-solid fa-users', label: 'Backing' },
 		{ name: 'guitar', iconClass: 'fa-solid fa-guitar', label: 'Guitar' },
 		{ name: 'piano', iconClass: 'ti ti-piano', label: 'Piano' },
 	] as const;
+
+	// Show only stems that exist in the current stem_urls from server
+	const stems = $derived(
+		np.stem_urls
+			? allStems.filter((s) => s.name in np.stem_urls)
+			: allStems.filter((s) => s.name !== 'lead_vocals' && s.name !== 'backing_vocals'),
+	);
+
+	const hasSplitVocals = $derived(np.stem_urls && 'lead_vocals' in np.stem_urls);
 
 	type Preset = 'karaoke' | 'original' | 'practice';
 
@@ -24,7 +35,8 @@
 		const presetMix: Record<string, boolean> = {};
 		for (const s of stems) {
 			if (preset === 'karaoke') {
-				presetMix[s.name] = s.name !== 'vocals';
+				// Mute lead vocals (or combined vocals), keep backing
+				presetMix[s.name] = s.name !== 'vocals' && s.name !== 'lead_vocals';
 			} else if (preset === 'original') {
 				presetMix[s.name] = true;
 			} else if (preset === 'practice') {
@@ -49,7 +61,7 @@
 		{#if np.stems_available}
 			<!-- Quick presets -->
 			<div class="presets">
-				<button class="preset-btn" on:click={() => applyPreset('karaoke')} title="Vocals OFF">
+				<button class="preset-btn" on:click={() => applyPreset('karaoke')} title={hasSplitVocals ? 'Lead OFF, backing ON' : 'Vocals OFF'}>
 					<i class="ti ti-microphone-off"></i>
 					{#if !compact}<span>Karaoke</span>{/if}
 				</button>
@@ -73,6 +85,7 @@
 						title={stem.label}
 					>
 						<i class="{stem.iconClass}"></i>
+						<span class="stem-label">{stem.label}</span>
 						<span class="stem-dot" class:on={isEnabled(stem.name)}></span>
 					</button>
 				{/each}
@@ -85,7 +98,7 @@
 				{:else}
 					<div class="split-progress">
 						<div class="split-bar">
-							{#each Array(np.stem_progress?.total ?? 6) as _, i}
+							{#each Array(np.stem_progress?.total ?? 8) as _, i}
 								<div class="split-seg" class:done={i < (np.stem_progress?.ready ?? 0)}></div>
 							{/each}
 						</div>
@@ -159,6 +172,14 @@
 		color: var(--color-text);
 	}
 
+	.stem-label {
+		font-size: 0.55rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		opacity: 0.7;
+	}
+
 	.stem-dot {
 		width: 5px;
 		height: 5px;
@@ -218,5 +239,8 @@
 	.compact .stem-btn {
 		font-size: 1rem;
 		padding: 4px;
+	}
+	.compact .stem-label {
+		display: none;
 	}
 </style>
