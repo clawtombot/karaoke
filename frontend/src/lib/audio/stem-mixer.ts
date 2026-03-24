@@ -19,6 +19,7 @@ let masterGain: GainNode | null = null;
 let playing = false;
 let startTime = 0; // AudioContext time when playback started
 let startOffset = 0; // Song position offset
+let readyCallbacks: Array<() => void> = [];
 
 export function isActive(): boolean {
 	return playing && channels.size > 0;
@@ -31,7 +32,13 @@ export function isReady(): boolean {
 
 /** Initialize the audio context and gain nodes. */
 export function init() {
-	if (ctx) return;
+	if (ctx) {
+		// Already initialized — try to resume (needs user gesture context)
+		if (ctx.state === 'suspended') {
+			ctx.resume().catch(() => {});
+		}
+		return;
+	}
 	ctx = new AudioContext();
 	masterGain = ctx.createGain();
 	masterGain.connect(ctx.destination);
@@ -42,9 +49,26 @@ export function init() {
 		channels.set(name, { source: null, gain, buffer: null, loaded: false });
 	}
 
-	// Try to resume immediately (works if user already interacted)
+	// Fire ready callbacks when AudioContext transitions to 'running'
+	ctx.onstatechange = () => {
+		if (ctx?.state === 'running' && readyCallbacks.length > 0) {
+			const cbs = [...readyCallbacks];
+			readyCallbacks = [];
+			for (const cb of cbs) cb();
+		}
+	};
+
 	if (ctx.state === 'suspended') {
 		ctx.resume().catch(() => {});
+	}
+}
+
+/** Register a callback for when AudioContext becomes ready. Fires immediately if already running. */
+export function onReady(cb: () => void) {
+	if (ctx?.state === 'running') {
+		cb();
+	} else {
+		readyCallbacks.push(cb);
 	}
 }
 
@@ -176,6 +200,7 @@ export function resume() {
 export function teardown() {
 	stop();
 	channels.clear();
+	readyCallbacks = [];
 	if (ctx) {
 		ctx.close();
 		ctx = null;

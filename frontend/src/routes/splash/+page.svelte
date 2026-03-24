@@ -59,13 +59,18 @@
 			stemMixer.play(video.currentTime);
 			stemMixer.applyMix(np.stem_mix, np.volume);
 
-			if (stemMixer.isReady()) {
-				// AudioContext is running — stems handle audio, mute video
-				video.volume = 0;
-				video.muted = false;
-			} else {
+			// Mute video as soon as AudioContext is ready (immediate or deferred).
+			// This prevents dual audio — stems + video playing simultaneously.
+			stemMixer.onReady(() => {
+				if (video) {
+					video.volume = 0;
+					video.muted = false;
+				}
+			});
+
+			if (!stemMixer.isReady()) {
 				// AudioContext suspended (no user gesture yet) — keep video audible
-				// until user clicks, then swap to stems
+				// until stems activate via onReady callback above
 				video.muted = false;
 				video.volume = np.volume;
 			}
@@ -224,18 +229,20 @@
 		}
 	});
 
-	// Reactive play/pause sync — self-healing safety net.
-	// If the video state doesn't match np.is_paused (missed socket event,
-	// reconnect, race condition), this effect corrects it.
+	// Sole play/pause controller — driven by server state (np.is_paused).
+	// No direct pause/play socket handlers — this $effect is the single
+	// source of truth, preventing race conditions from dual controllers.
 	$effect(() => {
 		const paused = np.is_paused;
-		if (!video || !np.now_playing) return;
+		if (!video || !np.now_playing || !currentVideoUrl) return;
 		if (paused && !video.paused) {
 			video.pause();
 			stemMixer.pause();
 		} else if (!paused && video.paused) {
-			video.play().catch(() => {});
-			stemMixer.resume();
+			video.play().catch(() => {
+				// Autoplay blocked — will play on next user gesture (onUserGesture)
+			});
+			if (stemMixer.isActive()) stemMixer.resume();
 		}
 	});
 
@@ -273,17 +280,6 @@
 						}
 					}
 				}
-			}),
-			on('pause', () => {
-				video?.pause();
-				stemMixer.pause();
-			}),
-			on('play', () => {
-				// play() can reject if called right after pause() (AbortError)
-				video?.play().catch(() => {
-					setTimeout(() => video?.play().catch(() => {}), 50);
-				});
-				stemMixer.resume();
 			}),
 			on('skip', () => {
 				video?.pause();
@@ -403,21 +399,19 @@
 			video.volume = np.volume;
 		}
 
-		// Resume suspended AudioContext and swap to stem audio
-		if (!stemMixer.isReady() && stemMixer.isActive()) {
-			// Context was suspended — resume it, then mute video
-			const tryResume = () => {
-				if (stemMixer.isReady()) {
-					if (video) {
-						video.volume = 0;
-						stemMixer.syncToVideo(video.currentTime);
-					}
-				}
-			};
-			// init() tries resume, but call it again with the user gesture context
-			stemMixer.init();
-			// Give AudioContext a moment to transition to 'running'
-			setTimeout(tryResume, 100);
+		// Resume suspended AudioContext with user gesture context.
+		// init() now calls ctx.resume() even if already initialized.
+		stemMixer.init();
+
+		// If stems are active and AudioContext just became ready, swap to stem audio
+		if (stemMixer.isActive() && stemMixer.isReady() && video) {
+			video.volume = 0;
+			stemMixer.syncToVideo(video.currentTime);
+		}
+
+		// If video is paused but should be playing, try to play
+		if (video && video.paused && !np.is_paused && currentVideoUrl) {
+			video.play().catch(() => {});
 		}
 	}
 
