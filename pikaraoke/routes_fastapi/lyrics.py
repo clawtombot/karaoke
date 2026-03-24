@@ -93,6 +93,20 @@ def _parse_filename(filename: str) -> tuple[str, str]:
             parts = name.split(sep, 1)
             artist = parts[0].strip()
             title = parts[1].strip()
-            return title, artist
+            return _clean_title(title), artist
 
-    return name.strip(), ""
+    return _clean_title(name.strip()), ""
+
+
+def _clean_title(title: str) -> str:
+    """Strip common YouTube suffixes that pollute lyrics searches."""
+    import re
+
+    # Remove bracketed/parenthesized tags: [OFFICIAL VIDEO], (Official Music Video), etc.
+    title = re.sub(
+        r"\s*[\[\(](?:official|music|lyric|audio|hd|hq|4k|remaster|live|feat\b)[^\]\)]*[\]\)]",
+        "",
+        title,
+        flags=re.IGNORECASE,
+    )
+    return title.strip()
