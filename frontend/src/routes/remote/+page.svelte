@@ -120,6 +120,28 @@
 			initialSynced = false; // Re-sync position for new song
 			const uid = url.split('/').pop()?.replace(/\.(m3u8|mp4)$/, '') ?? '';
 			loadLyrics(uid);
+			// Restore saved config for this song
+			const file = np.now_playing_file;
+			if (file) {
+				fetch(api(`/api/song_config/${encodeURIComponent(file)}`))
+					.then((r) => r.ok ? r.json() : {})
+					.then((cfg) => {
+						if (cfg.lyrics_offset_ms) _setOffset(cfg.lyrics_offset_ms, true);
+						else _setOffset(0, false);
+						pitchOffsetSec = cfg.pitch_offset_sec ?? 0;
+						pitchNoiseGate = cfg.noise_gate ?? 0.05;
+						emit('pitch_offset', pitchOffsetSec);
+						emit('pitch_noise_gate', pitchNoiseGate);
+					})
+					.catch(() => {});
+			} else {
+				_setOffset(0, false);
+				pitchOffsetSec = 0;
+				pitchNoiseGate = 0.05;
+			}
+			// Clear search state for new song
+			searchTitle = '';
+			candidates = [];
 		} else if (!url && lastUrl) {
 			lastUrl = null;
 			initialSynced = false;

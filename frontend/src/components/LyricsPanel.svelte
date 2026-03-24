@@ -203,10 +203,12 @@
 	}
 
 	.line-romanized {
-		font-size: 0.7rem;
-		color: var(--color-teal, #00d2ff);
+		font-family: var(--font-display);
+		font-size: 1.1rem;
+		font-weight: 700;
+		color: rgba(255, 255, 255, 0.9);
 		margin-top: 2px;
-		opacity: 0.7;
+		line-height: 1.3;
 	}
 	.line-translation {
 		font-family: var(--font-body);
