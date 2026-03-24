@@ -27,7 +27,14 @@
 
 	// Show lines in pairs: (0,1), (2,3), (4,5)...
 	// First line fills, then second line fills, then swap to fresh pair.
-	const pairStart = $derived(lineIdx >= 0 ? Math.floor(lineIdx / 2) * 2 : 0);
+	// Stable: keeps last active pair during gaps between lines.
+	let stablePairStart = $state(0);
+	$effect(() => {
+		if (lineIdx >= 0) {
+			stablePairStart = Math.floor(lineIdx / 2) * 2;
+		}
+	});
+	const pairStart = $derived(stablePairStart);
 
 	const displayLines = $derived.by(() => {
 		if (!lyrics?.lines) return [];
@@ -80,7 +87,7 @@
 			{@const isActive = lineIndex === lineIdx}
 			{@const isSung = lineIndex < lineIdx}
 			<div class="lyrics-line">
-				{#if line.romanized && isActive}
+				{#if line.romanized}
 					<div class="lyrics-romanized">{line.romanized}</div>
 				{/if}
 
