@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from pikaraoke.constants import STEMS_SUBDIR, stems_complete
 from pikaraoke.lib.dependencies import get_admin_password, get_karaoke
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
-from pikaraoke.lib.pitch.extractor import PITCH_SUBDIR
+from pikaraoke.lib.pitch.extractor import PITCH_SUBDIR, extract_and_save as extract_pitch
 
 router = APIRouter(tags=["files"])
 
@@ -204,3 +204,49 @@ async def rename_file(request: Request, body: RenameBody):
         )
 
     return {"ok": True, "message": f"Renamed file: {old_name} to {new_name_full}"}
+
+
+# Background pitch backfill task
+_backfill_task = None
+
+
+@router.post("/api/pitch/backfill")
+async def pitch_backfill():
+    """Trigger pitch extraction for all songs with stems but no pitch data."""
+    import asyncio
+    import threading
+
+    global _backfill_task
+    if _backfill_task and _backfill_task.is_alive():
+        return {"ok": False, "message": "Backfill already running"}
+
+    k = get_karaoke()
+    dl = k.download_path
+    stems_base = os.path.join(dl, STEMS_SUBDIR)
+    pitch_dir = os.path.join(dl, PITCH_SUBDIR)
+
+    # Find songs needing pitch extraction
+    pending = []
+    if os.path.isdir(stems_base):
+        for song_dir in os.listdir(stems_base):
+            vocals = os.path.join(stems_base, song_dir, "vocals.m4a")
+            name_no_ext = os.path.splitext(song_dir)[0]
+            done_marker = os.path.join(pitch_dir, f"{name_no_ext}.json.done")
+            if os.path.isfile(vocals) and not os.path.exists(done_marker):
+                pending.append(song_dir)
+
+    if not pending:
+        return {"ok": True, "message": "All songs already have pitch data", "pending": 0}
+
+    def run():
+        for song_dir in pending:
+            vocals = os.path.join(stems_base, song_dir, "vocals.m4a")
+            try:
+                extract_pitch(vocals, pitch_dir, output_name=song_dir)
+            except Exception as e:
+                logging.warning("Pitch backfill failed for %s: %s", song_dir, e)
+
+    _backfill_task = threading.Thread(target=run, daemon=True)
+    _backfill_task.start()
+
+    return {"ok": True, "message": f"Backfill started for {len(pending)} songs", "pending": len(pending)}

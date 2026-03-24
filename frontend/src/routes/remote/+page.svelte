@@ -3,7 +3,7 @@
 	import { api } from '$lib/api';
 	import { base } from '$app/paths';
 	import { getState, fetchNowPlaying } from '$lib/stores/playback.svelte';
-	import { loadLyrics, clearLyrics, getLyrics } from '$lib/stores/lyrics.svelte';
+	import { loadLyrics, clearLyrics, getLyrics, nudgeOffset, getOffset, setOffset, searchLyrics } from '$lib/stores/lyrics.svelte';
 	import { on } from '$lib/stores/socket.svelte';
 	import LyricsPanel from '$components/LyricsPanel.svelte';
 	import StemMixer from '$components/StemMixer.svelte';
@@ -11,8 +11,27 @@
 
 	const np = $derived(getState());
 	const lyricsData = $derived(getLyrics());
+	const lyricsOffset = $derived(getOffset());
 	let currentTimeMs = $state(0);
 	let volume = $state(0.85);
+
+	// Lyrics search modal
+	let showLyricsSearch = $state(false);
+	let searchTitle = $state('');
+	let searchArtist = $state('');
+	let searchLoading = $state(false);
+	let searchError = $state('');
+
+	async function doLyricsSearch() {
+		if (!searchTitle.trim()) return;
+		searchLoading = true;
+		searchError = '';
+		await searchLyrics(searchTitle.trim(), searchArtist.trim());
+		const err = getLyrics() === null;
+		searchError = err ? 'No lyrics found' : '';
+		searchLoading = false;
+		if (!err) showLyricsSearch = false;
+	}
 	let transpose = $state(0);
 	let isSeeking = $state(false);
 
@@ -186,6 +205,42 @@
 			</div>
 		</div>
 
+		<!-- Lyrics controls -->
+		{#if np.now_playing}
+			<div class="lyrics-controls">
+				<div class="offset-row">
+					<button class="offset-btn" onclick={() => nudgeOffset(-200)}>-0.2s</button>
+					<button class="offset-btn" onclick={() => nudgeOffset(-500)}>-0.5s</button>
+					<span class="offset-val" class:adjusted={lyricsOffset !== 0}>
+						{lyricsOffset >= 0 ? '+' : ''}{(lyricsOffset / 1000).toFixed(1)}s
+					</span>
+					<button class="offset-btn" onclick={() => nudgeOffset(500)}>+0.5s</button>
+					<button class="offset-btn" onclick={() => nudgeOffset(200)}>+0.2s</button>
+					{#if lyricsOffset !== 0}
+						<button class="offset-btn reset" onclick={() => setOffset(0)}>Reset</button>
+					{/if}
+				</div>
+				<button class="search-lyrics-btn" onclick={() => { showLyricsSearch = !showLyricsSearch; searchTitle = np.now_playing ?? ''; searchArtist = ''; }}>
+					Search Different Lyrics
+				</button>
+			</div>
+		{/if}
+
+		<!-- Lyrics search modal -->
+		{#if showLyricsSearch}
+			<div class="lyrics-search-panel glass-light">
+				<input type="text" bind:value={searchTitle} placeholder="Song title" class="lyrics-input" />
+				<input type="text" bind:value={searchArtist} placeholder="Artist (optional)" class="lyrics-input" />
+				<div class="flex gap-2">
+					<button class="search-go-btn" onclick={doLyricsSearch} disabled={searchLoading}>
+						{searchLoading ? 'Searching...' : 'Search'}
+					</button>
+					<button class="search-cancel-btn" onclick={() => (showLyricsSearch = false)}>Cancel</button>
+				</div>
+				{#if searchError}<p class="text-xs mt-1" style="color: var(--color-pink)">{searchError}</p>{/if}
+			</div>
+		{/if}
+
 		<!-- Seek bar -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
@@ -353,6 +408,89 @@
 		font-size: 0.65rem;
 		color: var(--color-faint);
 		letter-spacing: 0.03em;
+	}
+
+	/* Lyrics controls */
+	.lyrics-controls {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		align-items: center;
+		margin: 6px 0;
+	}
+	.offset-row {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+	.offset-btn {
+		padding: 3px 8px;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.04);
+		color: var(--color-dim);
+		font-size: 0.6rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.offset-btn:active { background: rgba(255, 255, 255, 0.1); }
+	.offset-btn.reset { color: var(--color-pink); border-color: rgba(236, 72, 153, 0.2); }
+	.offset-val {
+		min-width: 44px;
+		text-align: center;
+		font-size: 0.65rem;
+		font-family: var(--font-mono);
+		color: var(--color-faint);
+	}
+	.offset-val.adjusted { color: var(--color-teal); }
+	.search-lyrics-btn {
+		padding: 4px 12px;
+		border-radius: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.04);
+		color: var(--color-dim);
+		font-size: 0.65rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.search-lyrics-btn:active { background: rgba(255, 255, 255, 0.1); }
+	.lyrics-search-panel {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding: 10px;
+		border-radius: 10px;
+		margin: 4px 0;
+	}
+	.lyrics-input {
+		padding: 6px 10px;
+		border-radius: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: rgba(0, 0, 0, 0.3);
+		color: var(--color-text);
+		font-size: 0.8rem;
+		outline: none;
+	}
+	.lyrics-input:focus { border-color: rgba(124, 58, 237, 0.4); }
+	.search-go-btn {
+		flex: 1;
+		padding: 6px;
+		border-radius: 8px;
+		border: none;
+		background: rgba(124, 58, 237, 0.3);
+		color: var(--color-text);
+		font-size: 0.75rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.search-cancel-btn {
+		padding: 6px 12px;
+		border-radius: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: transparent;
+		color: var(--color-dim);
+		font-size: 0.75rem;
+		cursor: pointer;
 	}
 
 	/* Seek bar */

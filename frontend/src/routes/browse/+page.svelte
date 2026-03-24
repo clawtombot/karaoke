@@ -51,6 +51,28 @@
 	// Queue tracking
 	let addedSongs = $state(new Set<string>());
 
+	// Backfill
+	let backfillRunning = $state(false);
+	let backfillMsg = $state('');
+	async function startBackfill() {
+		backfillRunning = true;
+		backfillMsg = '';
+		try {
+			const res = await fetch(api('/api/pitch/backfill'), { method: 'POST' });
+			const data = await res.json();
+			backfillMsg = data.message;
+			if (data.pending > 0) {
+				// Refresh song list after a delay to show updated metadata
+				setTimeout(() => { fetchSongs(); backfillRunning = false; backfillMsg = ''; }, 30000);
+			} else {
+				backfillRunning = false;
+			}
+		} catch {
+			backfillMsg = 'Backfill failed';
+			backfillRunning = false;
+		}
+	}
+
 	const alphabet = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 	function showToast(msg: string) {
@@ -241,14 +263,28 @@
 				</span>
 			{/if}
 		</div>
-		<button
-			onclick={toggleSort}
-			class="glass-light rounded-xl px-3 py-2 text-xs font-semibold transition-opacity active:opacity-70"
-			style="color: var(--color-teal)"
-		>
-			{sortMode === 'name' ? 'A-Z' : 'Recent'}
-		</button>
+		<div class="flex items-center gap-2">
+			<button
+				onclick={startBackfill}
+				disabled={backfillRunning}
+				class="glass-light rounded-xl px-3 py-2 text-xs font-semibold transition-opacity active:opacity-70"
+				style="color: var(--color-pink)"
+				title="Generate pitch data for all songs"
+			>
+				{backfillRunning ? 'Extracting...' : 'Backfill Pitch'}
+			</button>
+			<button
+				onclick={toggleSort}
+				class="glass-light rounded-xl px-3 py-2 text-xs font-semibold transition-opacity active:opacity-70"
+				style="color: var(--color-teal)"
+			>
+				{sortMode === 'name' ? 'A-Z' : 'Recent'}
+			</button>
+		</div>
 	</div>
+	{#if backfillMsg}
+		<div class="text-xs text-center py-1" style="color: var(--color-dim)">{backfillMsg}</div>
+	{/if}
 
 	<!-- Alphabet strip -->
 	<div class="alpha-strip">
