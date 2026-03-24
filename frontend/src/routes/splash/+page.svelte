@@ -243,7 +243,10 @@
 				stemMixer.pause();
 			}),
 			on('play', () => {
-				video?.play();
+				// play() can reject if called right after pause() (AbortError)
+				video?.play().catch(() => {
+					setTimeout(() => video?.play().catch(() => {}), 50);
+				});
 				stemMixer.resume();
 			}),
 			on('skip', () => {

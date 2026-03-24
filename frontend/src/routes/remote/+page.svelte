@@ -85,7 +85,14 @@
 	);
 
 	async function doSkip() { await fetch(api('/skip')); }
-	async function doPause() { await fetch(api('/pause')); }
+	let pausePending = false;
+	async function doPause() {
+		if (pausePending) return; // Debounce rapid taps
+		pausePending = true;
+		await fetch(api('/pause'));
+		// Small cooldown to prevent double-toggle
+		setTimeout(() => { pausePending = false; }, 300);
+	}
 	async function doRestart() { await fetch(api('/restart')); }
 	async function setVolume(e: Event) {
 		const val = (e.target as HTMLInputElement).value;
