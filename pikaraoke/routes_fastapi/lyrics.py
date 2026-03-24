@@ -107,6 +107,8 @@ async def lyrics_candidates(
 
 class SelectLyricsBody(BaseModel):
     candidate_id: str  # "netease:12345" or "lrclib:67890"
+    title: str = ""  # Override title for cache key (optional)
+    artist: str = ""  # Override artist for cache key (optional)
 
 
 @router.post("/api/lyrics/select")
@@ -114,8 +116,14 @@ async def select_lyrics(body: SelectLyricsBody):
     """Fetch lyrics for a specific candidate and save to cache for the current song."""
     k = get_karaoke()
     now_file = k.playback_controller.now_playing_filename
-    if not now_file:
-        return JSONResponse({"error": "No song playing"}, status_code=404)
+
+    # Determine cache key: use overrides if given, else parse from now_playing
+    if body.title:
+        title, artist = body.title, body.artist
+    elif now_file:
+        title, artist = _parse_filename(os.path.basename(now_file))
+    else:
+        return JSONResponse({"error": "No song playing and no title provided"}, status_code=404)
 
     source, sid = body.candidate_id.split(":", 1)
     lyrics = None
@@ -135,17 +143,14 @@ async def select_lyrics(body: SelectLyricsBody):
         return JSONResponse({"error": "Failed to fetch lyrics for candidate"}, status_code=404)
 
     # Word timing estimation if needed
-    manager = _get_manager()
     if not any(line.words for line in lyrics.lines):
-        from pikaraoke.lib.lyrics.word_estimator import estimate_words
+        from pikaraoke.lib.lyrics.word_estimator import estimate_word_timing
         for line in lyrics.lines:
             if not line.words:
-                line.words = estimate_words(line)
-        lyrics = lyrics._replace(has_word_timing=True) if hasattr(lyrics, '_replace') else lyrics
+                line.words = estimate_word_timing(line)
         lyrics.has_word_timing = True
 
-    # Save to cache under current song's key
-    title, artist = _parse_filename(os.path.basename(now_file))
+    # Save to cache under song's key
     cache_dir = os.path.join(k.download_path, ".lyrics_cache")
     cache = LyricsCache(cache_dir)
     cache.put(title, artist, lyrics)

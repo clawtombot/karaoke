@@ -489,6 +489,10 @@
 		padding: 10px;
 		border-radius: 10px;
 		margin: 4px 0;
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		background: rgba(13, 6, 24, 0.4);
+		border: 1px solid rgba(124, 58, 237, 0.15);
 	}
 	.lyrics-input {
 		padding: 6px 10px;
@@ -534,17 +538,20 @@
 		width: 100%;
 		padding: 8px 10px;
 		border-radius: 8px;
-		border: 1px solid rgba(255, 255, 255, 0.06);
-		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.04);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
 		text-align: left;
 		cursor: pointer;
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
+		color: inherit;
 	}
 	.candidate-btn:active, .candidate-btn.selecting {
-		background: rgba(124, 58, 237, 0.15);
-		border-color: rgba(124, 58, 237, 0.3);
+		background: rgba(124, 58, 237, 0.2);
+		border-color: rgba(124, 58, 237, 0.4);
 	}
 	.c-title {
 		font-size: 0.8rem;
