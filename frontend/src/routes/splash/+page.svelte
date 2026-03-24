@@ -45,7 +45,11 @@
 	// Try to play video, with muted fallback for autoplay policy
 	function tryPlay() {
 		if (!video) return;
-		video.play().catch(() => {
+		video.play().then(() => {
+			// Unmuted autoplay succeeded — resume AudioContext in same context
+			// so stems can take over without user gesture
+			stemMixer.init();
+		}).catch(() => {
 			// Autoplay blocked — try muted (browsers allow muted autoplay)
 			console.warn('[splash] autoplay blocked, retrying muted');
 			video.muted = true;
@@ -260,6 +264,10 @@
 	let unsubs: Array<() => void> = [];
 
 	onMount(() => {
+		// Pre-create AudioContext early — may start 'running' if browser
+		// allows autoplay (high Media Engagement Index or user gesture carried over)
+		stemMixer.init();
+
 		// Register as splash screen (only here — the 'connect' handler below
 		// handles RE-connections, not the initial connect which already happened
 		// via +layout.svelte before this onMount runs)
