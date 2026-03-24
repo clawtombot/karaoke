@@ -532,8 +532,8 @@
 		offsetSec={pitchOffsetSec}
 		noiseGate={pitchNoiseGate}
 		backingNoiseGate={backingNoiseGate}
-		leadColor={singerInfo.lead === 'female' ? '#ff69b4' : '#4da6ff'}
-		backingColor={singerInfo.backing === 'female' ? '#ff69b4' : '#4da6ff'}
+		leadColor={'#ff69b4'}
+		backingColor={'#7c6fff'}
 	/>
 
 	<!-- Lyrics overlay (bottom) -->

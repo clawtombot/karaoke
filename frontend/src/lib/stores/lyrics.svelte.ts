@@ -96,13 +96,15 @@ export function updatePosition(currentMs: number) {
 	const lineIdx = lyrics.lines.findIndex(
 		(l) => adjusted >= l.start && adjusted < l.end
 	);
-	currentLineIndex = lineIdx;
 
 	if (lineIdx === -1) {
+		// Between lines — keep currentLineIndex at the last sung line
+		// so "sung" highlighting doesn't reset to white during gaps
 		currentWordIndex = -1;
 		wordProgress = 0;
 		return;
 	}
+	currentLineIndex = lineIdx;
 
 	const line = lyrics.lines[lineIdx];
 	if (!line.words || line.words.length === 0) {
