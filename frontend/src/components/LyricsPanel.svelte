@@ -116,6 +116,9 @@
 						<div class="line-text">
 							<span class="lyric-word" class:sung={hasRealTiming && state !== 'future'}>{line.text}</span>
 						</div>
+						{#if line.romanized}
+							<div class="line-romanized">{line.romanized}</div>
+						{/if}
 					{/if}
 
 					{#if line.translated && state === 'current'}
@@ -199,6 +202,12 @@
 		transform: scale(0.75) translateZ(0);
 	}
 
+	.line-romanized {
+		font-size: 0.7rem;
+		color: var(--color-teal, #00d2ff);
+		margin-top: 2px;
+		opacity: 0.7;
+	}
 	.line-translation {
 		font-family: var(--font-body);
 		font-size: 0.75rem;
