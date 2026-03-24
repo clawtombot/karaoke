@@ -152,28 +152,46 @@
 		return closest;
 	}
 
-	/** Draw a pill-shaped bar — filled (solid white) or outlined (white stroke). */
+	const NOTE_COLOR = '#ff69b4';
+
+	/** Draw a pill-shaped bar with knob — filled (solid pink) or outlined (pink stroke). */
 	function drawPill(
 		ctx: CanvasRenderingContext2D,
 		x: number, y: number, w: number, h: number,
 		filled: boolean
 	) {
 		const r = h / 2;
+		const knobR = r * 1.3;
 
 		ctx.beginPath();
 		ctx.roundRect(x, y, w, h, r);
 
 		if (filled) {
-			ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+			ctx.fillStyle = NOTE_COLOR;
 			ctx.fill();
-			ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+			ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+			ctx.lineWidth = 1.5;
+			ctx.stroke();
+
+			// Knob at left edge
+			ctx.beginPath();
+			ctx.arc(x + r, y + r, knobR, 0, Math.PI * 2);
+			ctx.fillStyle = NOTE_COLOR;
+			ctx.fill();
+			ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
 			ctx.lineWidth = 1.5;
 			ctx.stroke();
 		} else {
-			ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+			ctx.fillStyle = 'rgba(255, 105, 180, 0.06)';
 			ctx.fill();
-			ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+			ctx.strokeStyle = 'rgba(255, 105, 180, 0.3)';
 			ctx.lineWidth = 1.5;
+			ctx.stroke();
+
+			// Outlined knob
+			ctx.beginPath();
+			ctx.arc(x + r, y + r, knobR, 0, Math.PI * 2);
+			ctx.fill();
 			ctx.stroke();
 		}
 	}
@@ -250,13 +268,13 @@
 			if (isPast) {
 				drawPill(ctx, x1, barY, barW, barH, false);
 			} else if (isCrossing) {
-				// Progressive un-fill: filled bar as base, clip-outline the past portion
-				drawPill(ctx, x1, barY, barW, barH, true);
+				// Progressive un-fill: outlined base, then clip-fill the future (right) portion
+				drawPill(ctx, x1, barY, barW, barH, false);
 				ctx.save();
 				ctx.beginPath();
-				ctx.rect(0, 0, cursorX, h);
+				ctx.rect(cursorX, 0, w, h);
 				ctx.clip();
-				drawPill(ctx, x1, barY, barW, barH, false);
+				drawPill(ctx, x1, barY, barW, barH, true);
 				ctx.restore();
 
 				// Spawn particles on first crossing
@@ -282,9 +300,9 @@
 		}
 		for (const p of particles) {
 			ctx.globalAlpha = Math.max(0, p.alpha);
-			ctx.shadowColor = '#ffffff';
+			ctx.shadowColor = NOTE_COLOR;
 			ctx.shadowBlur = 8;
-			ctx.fillStyle = '#ffffff';
+			ctx.fillStyle = p.size > 2.5 ? '#fff' : NOTE_COLOR;
 			ctx.beginPath();
 			ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
 			ctx.fill();
@@ -417,7 +435,7 @@
 		width: 40%;
 		height: 100%;
 		border-radius: 2px;
-		background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+		background: linear-gradient(90deg, transparent, rgba(255, 105, 180, 0.6), transparent);
 		animation: shimmer 1.5s ease-in-out infinite;
 	}
 
