@@ -3,7 +3,7 @@
 	import { api } from '$lib/api';
 	import { base } from '$app/paths';
 	import { getState, fetchNowPlaying } from '$lib/stores/playback.svelte';
-	import { loadLyrics, clearLyrics, getLyrics, nudgeOffset, getOffset, setOffset, searchLyrics } from '$lib/stores/lyrics.svelte';
+	import { loadLyrics, clearLyrics, getLyrics, nudgeOffset, getOffset, setOffset, searchCandidates, selectCandidate, type LyricsCandidate } from '$lib/stores/lyrics.svelte';
 	import { on } from '$lib/stores/socket.svelte';
 	import LyricsPanel from '$components/LyricsPanel.svelte';
 	import StemMixer from '$components/StemMixer.svelte';
@@ -15,24 +15,29 @@
 	let currentTimeMs = $state(0);
 	let volume = $state(0.85);
 
-	// Lyrics search modal
+	// Lyrics search
 	let showLyricsSearch = $state(false);
 	let searchTitle = $state('');
 	let searchArtist = $state('');
 	let searchLoading = $state(false);
-	let searchError = $state('');
+	let candidates: LyricsCandidate[] = $state([]);
+	let selectingId = $state('');
 
 	async function doLyricsSearch() {
 		if (!searchTitle.trim()) return;
 		searchLoading = true;
-		searchError = '';
-		const ok = await searchLyrics(searchTitle.trim(), searchArtist.trim());
+		candidates = [];
+		candidates = await searchCandidates(searchTitle.trim(), searchArtist.trim());
 		searchLoading = false;
+	}
+
+	async function pickCandidate(id: string) {
+		selectingId = id;
+		const ok = await selectCandidate(id);
+		selectingId = '';
 		if (ok) {
 			showLyricsSearch = false;
-			searchError = '';
-		} else {
-			searchError = 'No lyrics found — try different title/artist';
+			candidates = [];
 		}
 	}
 	let transpose = $state(0);
@@ -229,18 +234,38 @@
 			</div>
 		{/if}
 
-		<!-- Lyrics search modal -->
+		<!-- Lyrics search panel -->
 		{#if showLyricsSearch}
 			<div class="lyrics-search-panel glass-light">
-				<input type="text" bind:value={searchTitle} placeholder="Song title" class="lyrics-input" />
-				<input type="text" bind:value={searchArtist} placeholder="Artist (optional)" class="lyrics-input" />
+				<div class="flex gap-2">
+					<input type="text" bind:value={searchTitle} placeholder="Song title" class="lyrics-input" style="flex:2" />
+					<input type="text" bind:value={searchArtist} placeholder="Artist" class="lyrics-input" style="flex:1" />
+				</div>
 				<div class="flex gap-2">
 					<button class="search-go-btn" onclick={doLyricsSearch} disabled={searchLoading}>
 						{searchLoading ? 'Searching...' : 'Search'}
 					</button>
-					<button class="search-cancel-btn" onclick={() => (showLyricsSearch = false)}>Cancel</button>
+					<button class="search-cancel-btn" onclick={() => { showLyricsSearch = false; candidates = []; }}>Cancel</button>
 				</div>
-				{#if searchError}<p class="text-xs mt-1" style="color: var(--color-pink)">{searchError}</p>{/if}
+				{#if candidates.length > 0}
+					<ul class="candidate-list">
+						{#each candidates as c (c.id)}
+							<li>
+								<button
+									class="candidate-btn"
+									class:selecting={selectingId === c.id}
+									onclick={() => pickCandidate(c.id)}
+									disabled={!!selectingId}
+								>
+									<span class="c-title">{c.title}</span>
+									<span class="c-meta">{c.artist} · {c.source}</span>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{:else if !searchLoading && searchTitle}
+					<p class="text-xs" style="color: var(--color-faint); text-align: center">Search to find lyrics</p>
+				{/if}
 			</div>
 		{/if}
 
@@ -494,6 +519,43 @@
 		color: var(--color-dim);
 		font-size: 0.75rem;
 		cursor: pointer;
+	}
+	.candidate-list {
+		list-style: none;
+		padding: 0;
+		margin: 4px 0 0;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		max-height: 200px;
+		overflow-y: auto;
+	}
+	.candidate-btn {
+		width: 100%;
+		padding: 8px 10px;
+		border-radius: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.06);
+		background: rgba(255, 255, 255, 0.03);
+		text-align: left;
+		cursor: pointer;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.candidate-btn:active, .candidate-btn.selecting {
+		background: rgba(124, 58, 237, 0.15);
+		border-color: rgba(124, 58, 237, 0.3);
+	}
+	.c-title {
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: var(--color-text);
+	}
+	.c-meta {
+		font-size: 0.6rem;
+		color: var(--color-faint);
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
 	}
 
 	/* Seek bar */

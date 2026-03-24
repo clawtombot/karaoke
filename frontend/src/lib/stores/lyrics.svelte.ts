@@ -143,27 +143,59 @@ export function nudgeOffset(deltaMs: number) {
 	setOffset(offsetMs + deltaMs);
 }
 
-/** Search for alternate lyrics and replace current. Returns true on success. */
-export async function searchLyrics(title: string, artist: string): Promise<boolean> {
+/** Search for lyrics candidates from multiple sources. */
+export interface LyricsCandidate {
+	id: string;
+	title: string;
+	artist: string;
+	source: string;
+	album?: string;
+	duration?: number;
+}
+
+export async function searchCandidates(title: string, artist: string): Promise<LyricsCandidate[]> {
+	try {
+		const params = new URLSearchParams({ title, artist });
+		const res = await fetch(`${base}/api/lyrics/candidates?${params}`);
+		if (res.ok) {
+			const data = await res.json();
+			return data.candidates ?? [];
+		}
+	} catch {}
+	return [];
+}
+
+/** Select a specific lyrics candidate — fetches, saves to cache, notifies splash. */
+export async function selectCandidate(candidateId: string): Promise<boolean> {
 	loading = true;
 	error = null;
 	try {
-		const params = new URLSearchParams({ title, artist });
-		const res = await fetch(`${base}/api/lyrics/search?${params}`);
+		const res = await fetch(`${base}/api/lyrics/select`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ candidate_id: candidateId }),
+		});
 		if (res.ok) {
 			lyrics = await res.json();
 			currentLineIndex = -1;
 			currentWordIndex = -1;
 			return true;
 		} else {
-			error = 'No lyrics found for that search';
+			error = 'Failed to load selected lyrics';
 			return false;
 		}
 	} catch (e) {
-		error = `Search failed: ${e}`;
+		error = `Select failed: ${e}`;
 		return false;
 	} finally {
 		loading = false;
+	}
+}
+
+/** Reload lyrics for current stream (called when splash receives lyrics_reload event). */
+export async function reloadLyrics() {
+	if (currentStreamUid) {
+		await loadLyrics(currentStreamUid);
 	}
 }
 

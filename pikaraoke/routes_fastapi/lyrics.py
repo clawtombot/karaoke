@@ -5,9 +5,11 @@ import os
 
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
-from pikaraoke.lib.dependencies import get_karaoke
+from pikaraoke.lib.dependencies import get_karaoke, get_sio
 from pikaraoke.lib.lyrics import LyricsManager
+from pikaraoke.lib.lyrics.cache import LyricsCache
 
 router = APIRouter(tags=["lyrics"])
 
@@ -39,6 +41,118 @@ async def search_lyrics(
     lyrics = await manager.get_lyrics(title=title, artist=artist)
     if lyrics is None:
         return JSONResponse({"error": "No lyrics found"}, status_code=404)
+
+    return lyrics.to_dict()
+
+
+@router.get("/api/lyrics/candidates")
+async def lyrics_candidates(
+    title: str = Query(...),
+    artist: str = Query(""),
+):
+    """Search multiple sources and return a list of lyrics candidates."""
+    import httpx
+    from pikaraoke.lib.lyrics import lrclib, netease
+    from pikaraoke.lib.lyrics.lrc_parser import parse_lrc
+
+    results = []
+    query = f"{artist} {title}".strip()
+
+    # NetEase: get multiple song IDs
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{netease.NETEASE_BASE}/search/get",
+                params={"s": query, "type": 1, "limit": 8},
+                headers={"User-Agent": netease.USER_AGENT, "Referer": "https://music.163.com/"},
+            )
+            if resp.status_code == 200:
+                songs = resp.json().get("result", {}).get("songs", [])
+                for song in songs[:5]:
+                    song_id = song.get("id")
+                    name = song.get("name", "")
+                    artists = ", ".join(a.get("name", "") for a in song.get("artists", []))
+                    results.append({
+                        "id": f"netease:{song_id}",
+                        "title": name,
+                        "artist": artists,
+                        "source": "netease",
+                    })
+    except Exception as e:
+        logging.warning("NetEase candidate search failed: %s", e)
+
+    # LRCLIB: get multiple results
+    try:
+        async with httpx.AsyncClient(timeout=10.0, headers={"User-Agent": lrclib.USER_AGENT}) as client:
+            resp = await client.get(f"{lrclib.LRCLIB_BASE}/search", params={"q": query})
+            if resp.status_code == 200:
+                items = resp.json()
+                if isinstance(items, list):
+                    for item in items[:5]:
+                        if not item.get("syncedLyrics"):
+                            continue
+                        results.append({
+                            "id": f"lrclib:{item.get('id', '')}",
+                            "title": item.get("trackName", ""),
+                            "artist": item.get("artistName", ""),
+                            "source": "lrclib",
+                            "album": item.get("albumName", ""),
+                            "duration": item.get("duration", 0),
+                        })
+    except Exception as e:
+        logging.warning("LRCLIB candidate search failed: %s", e)
+
+    return {"candidates": results}
+
+
+class SelectLyricsBody(BaseModel):
+    candidate_id: str  # "netease:12345" or "lrclib:67890"
+
+
+@router.post("/api/lyrics/select")
+async def select_lyrics(body: SelectLyricsBody):
+    """Fetch lyrics for a specific candidate and save to cache for the current song."""
+    k = get_karaoke()
+    now_file = k.playback_controller.now_playing_filename
+    if not now_file:
+        return JSONResponse({"error": "No song playing"}, status_code=404)
+
+    source, sid = body.candidate_id.split(":", 1)
+    lyrics = None
+
+    if source == "netease":
+        from pikaraoke.lib.lyrics import netease
+        lyrics = await netease.get_lyrics(int(sid))
+    elif source == "lrclib":
+        import httpx
+        from pikaraoke.lib.lyrics import lrclib
+        async with httpx.AsyncClient(timeout=10.0, headers={"User-Agent": lrclib.USER_AGENT}) as client:
+            resp = await client.get(f"{lrclib.LRCLIB_BASE}/get/{sid}")
+            if resp.status_code == 200:
+                lyrics = lrclib._parse_response(resp.json())
+
+    if lyrics is None:
+        return JSONResponse({"error": "Failed to fetch lyrics for candidate"}, status_code=404)
+
+    # Word timing estimation if needed
+    manager = _get_manager()
+    if not any(line.words for line in lyrics.lines):
+        from pikaraoke.lib.lyrics.word_estimator import estimate_words
+        for line in lyrics.lines:
+            if not line.words:
+                line.words = estimate_words(line)
+        lyrics = lyrics._replace(has_word_timing=True) if hasattr(lyrics, '_replace') else lyrics
+        lyrics.has_word_timing = True
+
+    # Save to cache under current song's key
+    title, artist = _parse_filename(os.path.basename(now_file))
+    cache_dir = os.path.join(k.download_path, ".lyrics_cache")
+    cache = LyricsCache(cache_dir)
+    cache.put(title, artist, lyrics)
+
+    # Notify splash to reload
+    sio = get_sio()
+    await sio.emit("lyrics_reload")
 
     return lyrics.to_dict()
 

@@ -6,7 +6,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { base } from '$app/paths';
 	import { getState, fetchNowPlaying, type NowPlaying } from '$lib/stores/playback.svelte';
-	import { loadLyrics, clearLyrics } from '$lib/stores/lyrics.svelte';
+	import { loadLyrics, clearLyrics, reloadLyrics } from '$lib/stores/lyrics.svelte';
 	import { emit, on } from '$lib/stores/socket.svelte';
 	import { start as startPitch, stop as stopPitch, type PitchReading } from '$lib/audio/pitch-detector';
 	import * as stemMixer from '$lib/audio/stem-mixer';
@@ -324,6 +324,10 @@
 				console.log('[splash] socket reconnected, re-registering');
 				emit('register_splash');
 				fetchNowPlaying();
+			}),
+			on('lyrics_reload', () => {
+				console.log('[splash] lyrics reload requested');
+				reloadLyrics();
 			}),
 		];
 
