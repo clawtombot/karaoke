@@ -376,6 +376,7 @@
 	}
 
 	async function seekFromClick(e: MouseEvent) {
+		e.stopPropagation(); // Don't trigger onUserGesture
 		if (!np.now_playing_duration || !video) return;
 		const bar = e.currentTarget as HTMLElement;
 		const rect = bar.getBoundingClientRect();
@@ -384,6 +385,10 @@
 		video.currentTime = pos;
 		if (stemMixer.isActive()) {
 			stemMixer.syncToVideo(pos);
+		}
+		// Resume playback if paused (seek implies intent to play)
+		if (video.paused) {
+			video.play().catch(() => {});
 		}
 		await fetch(`${base}/seek/${pos}`);
 	}

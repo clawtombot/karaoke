@@ -21,16 +21,17 @@
 	let lastServerTime = 0;    // performance.now() when we received it
 	let isPlaying = $state(false);
 	let rafId: number | null = null;
+	let seekCooldown = 0;      // ignore server sync until this timestamp
 
 	function syncFromServer(positionSec: number) {
+		if (isSeeking || performance.now() < seekCooldown) return;
 		lastServerPos = positionSec;
 		lastServerTime = performance.now();
 		isPlaying = true;
-		currentTimeMs = positionSec * 1000;
 	}
 
 	function interpolationLoop() {
-		if (isPlaying && !isSeeking && !np.is_paused) {
+		if (isPlaying && !isSeeking && !np.is_paused && performance.now() >= seekCooldown) {
 			const elapsed = (performance.now() - lastServerTime) / 1000;
 			currentTimeMs = (lastServerPos + elapsed) * 1000;
 		}
@@ -111,6 +112,11 @@
 		if (!isSeeking) return;
 		isSeeking = false;
 		const pos = currentTimeMs / 1000;
+		// Ignore server sync for 2s so stale position doesn't snap back
+		seekCooldown = performance.now() + 2000;
+		lastServerPos = pos;
+		lastServerTime = performance.now();
+		isPlaying = true;
 		await fetch(api('/seek/') + pos);
 	}
 
