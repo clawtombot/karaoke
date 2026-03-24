@@ -373,9 +373,6 @@
 		right: 0;
 		height: 25%;
 		z-index: 4;
-		backdrop-filter: blur(12px);
-		-webkit-backdrop-filter: blur(12px);
-		background: rgba(13, 6, 24, 0.3);
 		overflow: hidden;
 		pointer-events: none;
 	}
