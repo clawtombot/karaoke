@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import re
@@ -61,8 +62,24 @@ def song_metadata(download_path: str, song_path: str) -> dict:
     h = hashlib.md5(normalized.encode()).hexdigest()
     cache_path = os.path.join(download_path, ".lyrics_cache", f"{h}.json")
     has_lyrics = os.path.isfile(cache_path)
+    lyrics_source = None
+    lyrics_word_sync = False
+    if has_lyrics:
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                ldata = json.load(f)
+            lyrics_source = ldata.get("source", "unknown")
+            lyrics_word_sync = ldata.get("has_word_timing", False)
+        except Exception:
+            pass
 
-    return {"stems": has_stems, "pitch": has_pitch, "lyrics": has_lyrics}
+    return {
+        "stems": has_stems,
+        "pitch": has_pitch,
+        "lyrics": has_lyrics,
+        "lyrics_source": lyrics_source,
+        "lyrics_word_sync": lyrics_word_sync,
+    }
 
 
 def _is_admin(request: Request) -> bool:

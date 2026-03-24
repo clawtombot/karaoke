@@ -11,6 +11,8 @@
 		stems: boolean;
 		pitch: boolean;
 		lyrics: boolean;
+		lyrics_source: string | null;
+		lyrics_word_sync: boolean;
 	}
 	interface SongEntry {
 		path: string;
@@ -333,10 +335,14 @@
 								<div class="truncate text-sm font-medium" style="color: var(--color-text)">
 									{songName(song)}
 								</div>
-								<div class="flex gap-1.5 mt-1">
+								<div class="flex gap-1.5 mt-1 flex-wrap">
 									<span class="meta-badge" class:ready={meta.stems}>Stems</span>
 									<span class="meta-badge" class:ready={meta.pitch}>Pitch</span>
-									<span class="meta-badge" class:ready={meta.lyrics}>Lyrics</span>
+									{#if meta.lyrics}
+										<span class="meta-badge ready" title={meta.lyrics_source ?? ''}>{meta.lyrics_word_sync ? 'Word Sync' : 'Line Sync'} · {meta.lyrics_source ?? 'cached'}</span>
+									{:else}
+										<span class="meta-badge">Lyrics</span>
+									{/if}
 								</div>
 							</div>
 
