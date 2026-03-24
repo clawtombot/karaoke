@@ -41,7 +41,9 @@
 
 		const containerRect = container.getBoundingClientRect();
 		const elRect = el.getBoundingClientRect();
-		const offset = elRect.top - containerRect.top - containerRect.height / 2 + elRect.height / 2;
+		// Position current line ~30% from top (past lines visible above)
+		const targetY = containerRect.height * 0.3;
+		const offset = elRect.top - containerRect.top - targetY;
 		container.scrollBy({ top: offset, behavior: 'smooth' });
 	});
 
@@ -138,51 +140,50 @@
 		display: none;
 	}
 
-	/* Padding so the first/last lines can be centered */
+	/* Position current line near top with 1 past above */
 	.lines-list {
-		padding-top: 30%;
+		padding-top: 25%;
 		padding-bottom: 0;
 	}
 
 	.scroll-spacer {
-		height: 30%;
+		height: 60%;
 	}
 
 	.lyrics-line {
-		padding: 6px 16px;
-		text-align: center;
-		transition: opacity 0.3s ease, transform 0.3s ease;
+		padding: 8px 8px;
+		text-align: left;
+		transition: opacity 0.3s ease;
 		cursor: default;
 		user-select: none;
 	}
 
 	.lyrics-line.current {
 		opacity: 1;
-		transform: scale(1.04);
 	}
 
 	.lyrics-line.past {
-		opacity: 0.28;
-		transform: scale(0.97);
+		opacity: 0.2;
 	}
 
 	.lyrics-line.future {
-		opacity: 0.38;
-		transform: scale(0.97);
+		opacity: 0.35;
 	}
 
 	.line-text {
 		font-family: var(--font-display);
-		font-size: 1.05rem;
-		font-weight: 600;
-		line-height: 1.55;
+		font-size: 1.8rem;
+		font-weight: 700;
+		line-height: 1.4;
 		letter-spacing: 0.01em;
 		word-break: break-word;
+		transform-origin: left top;
+		transition: transform 0.4s ease, opacity 0.3s ease;
 	}
 
-	.lyrics-line.current .line-text {
-		font-size: 1.15rem;
-		font-weight: 700;
+	.lyrics-line.past .line-text,
+	.lyrics-line.future .line-text {
+		transform: scale(0.75);
 	}
 
 	.line-translation {

@@ -33,7 +33,7 @@ def setup_socket_events(sio) -> None:
         splash_connections.add(sid)
         logging.info(f"Splash screen registered: {sid}")
 
-        if master_splash_id is None:
+        if master_splash_id is None or master_splash_id == sid:
             master_splash_id = sid
             await sio.emit("splash_role", "master", room=sid)
             logging.info(f"Master splash assigned: {sid}")

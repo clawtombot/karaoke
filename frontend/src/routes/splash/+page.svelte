@@ -103,7 +103,10 @@
 		stemsInitiated = false;
 		const fullUrl = `${base}${url}`;
 
-		// Clean up previous
+		// Clean up previous song completely — stop stems BEFORE loading new video
+		// to prevent old stems playing alongside new video audio
+		stemMixer.teardown();
+		if (video) video.pause();
 		if (hlsInstance) {
 			hlsInstance.destroy();
 			hlsInstance = null;
@@ -214,7 +217,9 @@
 	let unsubs: Array<() => void> = [];
 
 	onMount(() => {
-		// Register as splash screen
+		// Register as splash screen (only here — the 'connect' handler below
+		// handles RE-connections, not the initial connect which already happened
+		// via +layout.svelte before this onMount runs)
 		emit('register_splash');
 
 		unsubs = [
@@ -338,6 +343,8 @@
 
 	// Video event handlers
 	function onVideoEnded() {
+		// Always stop stems on video end — prevents leftover audio if next song loads
+		stemMixer.teardown();
 		if (isMaster) {
 			emit('end_song', 'complete');
 		}
