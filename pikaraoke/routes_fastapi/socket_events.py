@@ -56,6 +56,11 @@ def setup_socket_events(sio) -> None:
         """Relay pitch noise gate threshold to all clients."""
         await sio.emit("pitch_noise_gate", gate, skip_sid=sid)
 
+    @sio.on("backing_noise_gate")
+    async def handle_backing_noise_gate(sid, gate: float) -> None:
+        """Relay backing vocal noise gate threshold to all clients."""
+        await sio.emit("backing_noise_gate", gate, skip_sid=sid)
+
     @sio.on("stem_toggle")
     async def handle_stem_toggle(sid, stem: str) -> None:
         k = get_karaoke()
