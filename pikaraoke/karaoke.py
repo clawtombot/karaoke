@@ -507,14 +507,14 @@ class Karaoke:
     def _is_song_ready(self, song_path: str) -> bool:
         """Check if a song's stems are ready for playback.
 
-        Songs without stems are always ready (they play without splitting).
-        Songs with the splitter enabled must have all stems complete.
+        When the splitter is enabled, a song is only ready once all 6
+        stems exist. This prevents playback before splitting completes.
         """
         if not self.vocal_splitter_enabled:
             return True
         basename = os.path.basename(song_path)
         stem_dir = os.path.join(self.download_path, STEMS_SUBDIR, basename)
-        return not os.path.isdir(stem_dir) or stems_complete(stem_dir)
+        return os.path.isdir(stem_dir) and stems_complete(stem_dir)
 
     def reset_now_playing(self) -> None:
         """Reset all now playing state to defaults."""
