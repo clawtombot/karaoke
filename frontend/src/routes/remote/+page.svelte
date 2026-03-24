@@ -358,7 +358,10 @@
 									disabled={!!selectingId}
 								>
 									<span class="c-title">{c.title}</span>
-									<span class="c-meta">{c.artist} · {c.source}</span>
+									<span class="c-meta">
+										{c.artist}
+										<span class="c-source" class:word-sync={c.source === 'netease'}>{c.source === 'netease' ? 'NetEase · may have word sync' : 'LRCLIB · line sync'}</span>
+									</span>
 								</button>
 							</li>
 						{/each}
@@ -695,8 +698,22 @@
 	.c-meta {
 		font-size: 0.6rem;
 		color: var(--color-faint);
-		text-transform: uppercase;
 		letter-spacing: 0.03em;
+		display: flex;
+		gap: 6px;
+		align-items: center;
+	}
+	.c-source {
+		font-size: 0.5rem;
+		padding: 1px 5px;
+		border-radius: 4px;
+		background: rgba(255, 255, 255, 0.05);
+		color: var(--color-faint);
+		text-transform: uppercase;
+	}
+	.c-source.word-sync {
+		background: rgba(0, 210, 255, 0.1);
+		color: var(--color-teal, #00d2ff);
 	}
 
 	/* Seek bar */
