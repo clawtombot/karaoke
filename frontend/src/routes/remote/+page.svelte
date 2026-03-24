@@ -21,6 +21,7 @@
 	// Pitch graph sync
 	let pitchOffsetSec = $state(0);
 	let pitchNoiseGate = $state(0.05);
+	let backingNoiseGate = $state(0.05);
 	function setPitchOffset(sec: number) {
 		pitchOffsetSec = sec;
 		emit('pitch_offset', sec);
@@ -29,6 +30,11 @@
 	function setPitchNoiseGate(val: number) {
 		pitchNoiseGate = Math.round(val * 100) / 100;
 		emit('pitch_noise_gate', pitchNoiseGate);
+		saveSongConfig();
+	}
+	function setBackingNoiseGate(val: number) {
+		backingNoiseGate = Math.round(val * 100) / 100;
+		emit('backing_noise_gate', backingNoiseGate);
 		saveSongConfig();
 	}
 
@@ -46,6 +52,7 @@
 					lyrics_offset_ms: lyricsOffset || null,
 					pitch_offset_sec: pitchOffsetSec || null,
 					noise_gate: pitchNoiseGate !== 0.05 ? pitchNoiseGate : null,
+					backing_noise_gate: backingNoiseGate !== 0.05 ? backingNoiseGate : null,
 				}),
 			}).catch(() => {});
 		}, 500);
@@ -130,14 +137,17 @@
 						else _setOffset(0, false);
 						pitchOffsetSec = cfg.pitch_offset_sec ?? 0;
 						pitchNoiseGate = cfg.noise_gate ?? 0.05;
+						backingNoiseGate = cfg.backing_noise_gate ?? 0.05;
 						emit('pitch_offset', pitchOffsetSec);
 						emit('pitch_noise_gate', pitchNoiseGate);
+						emit('backing_noise_gate', backingNoiseGate);
 					})
 					.catch(() => {});
 			} else {
 				_setOffset(0, false);
 				pitchOffsetSec = 0;
 				pitchNoiseGate = 0.05;
+				backingNoiseGate = 0.05;
 			}
 			// Clear search state for new song
 			searchTitle = '';
@@ -327,6 +337,24 @@
 						<span class="dial-val" class:adjusted={pitchNoiseGate !== 0.05}>{(pitchNoiseGate * 100).toFixed(0)}%</span>
 					</div>
 					{#if pitchNoiseGate !== 0.05}<button class="offset-btn reset" onclick={() => setPitchNoiseGate(0.05)}>5%</button>{/if}
+				</div>
+				<div class="sync-row">
+					<span class="sync-label">Harmony Gate</span>
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="scroll-dial"
+						onwheel={(e) => { e.preventDefault(); setBackingNoiseGate(Math.max(0, Math.min(1, backingNoiseGate + (e.deltaY > 0 ? 0.01 : -0.01)))); }}
+						onpointerdown={(e) => {
+							const el = e.currentTarget; el.setPointerCapture(e.pointerId);
+							const startX = e.clientX; const startVal = backingNoiseGate;
+							const move = (me: PointerEvent) => setBackingNoiseGate(Math.max(0, Math.min(1, startVal + (me.clientX - startX) * 0.002)));
+							const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); };
+							el.addEventListener('pointermove', move); el.addEventListener('pointerup', up);
+						}}
+					>
+						<div class="dial-ticks"></div>
+						<span class="dial-val" class:adjusted={backingNoiseGate !== 0.05}>{(backingNoiseGate * 100).toFixed(0)}%</span>
+					</div>
+					{#if backingNoiseGate !== 0.05}<button class="offset-btn reset" onclick={() => setBackingNoiseGate(0.05)}>5%</button>{/if}
 				</div>
 				<button class="search-lyrics-btn" onclick={() => { showLyricsSearch = !showLyricsSearch; if (!searchTitle) searchTitle = np.now_playing ?? ''; }}>
 					Search Different Lyrics

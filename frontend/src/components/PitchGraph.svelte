@@ -38,6 +38,7 @@
 		loading = false,
 		offsetSec = 0,
 		noiseGate = 0.05,
+		backingNoiseGate = 0.05,
 		leadColor = '#ff69b4',
 		backingColor = '#4da6ff',
 	}: {
@@ -49,6 +50,7 @@
 		loading: boolean;
 		offsetSec: number;
 		noiseGate: number;
+		backingNoiseGate: number;
 		leadColor: string;
 		backingColor: string;
 	} = $props();
@@ -60,21 +62,22 @@
 	const FALLBACK_MIN = 48;
 	const FALLBACK_MAX = 84;
 
-	// Combine lead + backing notes for range calculation
-	let allNotes = $derived([...referenceNotes, ...backingNotes]);
+	// Combine lead + backing notes (each filtered by their own gate) for range calculation
+	let allNotes = $derived([
+		...referenceNotes.filter((n) => (n.amp ?? 1) >= noiseGate),
+		...backingNotes.filter((n) => (n.amp ?? 1) >= backingNoiseGate),
+	]);
 
 	let minMidi = $derived.by(() => {
-		const notes = allNotes.filter((n) => (n.amp ?? 1) >= noiseGate);
-		if (notes.length === 0) return FALLBACK_MIN;
+		if (allNotes.length === 0) return FALLBACK_MIN;
 		let lo = Infinity;
-		for (const n of notes) if (n.midi < lo) lo = n.midi;
+		for (const n of allNotes) if (n.midi < lo) lo = n.midi;
 		return Math.max(0, lo - PADDING_SEMITONES);
 	});
 	let maxMidi = $derived.by(() => {
-		const notes = allNotes.filter((n) => (n.amp ?? 1) >= noiseGate);
-		if (notes.length === 0) return FALLBACK_MAX;
+		if (allNotes.length === 0) return FALLBACK_MAX;
 		let hi = -Infinity;
-		for (const n of notes) if (n.midi > hi) hi = n.midi;
+		for (const n of allNotes) if (n.midi > hi) hi = n.midi;
 		return Math.min(127, hi + PADDING_SEMITONES);
 	});
 
@@ -113,9 +116,9 @@
 		return segs;
 	});
 
-	// Backing vocal segments (same merging logic, different source)
+	// Backing vocal segments (same merging logic, independent noise gate)
 	let backingSegments: NoteSegment[] = $derived.by(() => {
-		const filtered = backingNotes.filter((n) => (n.amp ?? 1) >= noiseGate);
+		const filtered = backingNotes.filter((n) => (n.amp ?? 1) >= backingNoiseGate);
 		if (filtered.length === 0) return [];
 		const segs: NoteSegment[] = [];
 		let cur: NoteSegment = {
@@ -461,6 +464,7 @@
 		backingNotes;
 		visible;
 		noiseGate;
+		backingNoiseGate;
 		offsetSec;
 		render();
 	});

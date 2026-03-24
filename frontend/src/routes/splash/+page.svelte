@@ -31,6 +31,7 @@
 	let showPitchGraph = $state(true);
 	let pitchOffsetSec = $state(0);
 	let pitchNoiseGate = $state(0.05);
+	let backingNoiseGate = $state(0.05);
 	let stemsReady = false; // Stems loaded but waiting for video to play
 	let stemsInitiated = false; // Stem loading started for current song
 	let stemGeneration = 0; // Increments on song change to cancel stale loads
@@ -362,6 +363,9 @@
 			on('pitch_noise_gate', (gate: any) => {
 				pitchNoiseGate = Number(gate);
 			}),
+			on('backing_noise_gate', (gate: any) => {
+				backingNoiseGate = Number(gate);
+			}),
 		];
 
 		// Start rAF loop
@@ -521,6 +525,7 @@
 		loading={pitchLoading && pitchData.length === 0}
 		offsetSec={pitchOffsetSec}
 		noiseGate={pitchNoiseGate}
+		backingNoiseGate={backingNoiseGate}
 		leadColor={singerInfo.lead === 'female' ? '#ff69b4' : '#4da6ff'}
 		backingColor={singerInfo.backing === 'female' ? '#ff69b4' : '#4da6ff'}
 	/>
