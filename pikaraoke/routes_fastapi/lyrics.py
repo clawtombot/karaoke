@@ -25,6 +25,24 @@ def _get_manager() -> LyricsManager:
     return _lyrics_manager
 
 
+# NOTE: /search must be defined BEFORE /{stream_uid} so FastAPI doesn't
+# match "search" as a stream_uid path parameter.
+
+@router.get("/api/lyrics/search")
+async def search_lyrics(
+    title: str = Query(..., description="Song title"),
+    artist: str = Query("", description="Artist name"),
+):
+    """Search for lyrics by title and artist."""
+    manager = _get_manager()
+
+    lyrics = await manager.get_lyrics(title=title, artist=artist)
+    if lyrics is None:
+        return JSONResponse({"error": "No lyrics found"}, status_code=404)
+
+    return lyrics.to_dict()
+
+
 @router.get("/api/lyrics/{stream_uid}")
 async def get_lyrics_for_stream(stream_uid: str):
     """Get lyrics for the currently playing song by stream UID.
@@ -48,21 +66,6 @@ async def get_lyrics_for_stream(stream_uid: str):
     title, artist = _parse_filename(os.path.basename(file_path))
 
     lyrics = await manager.get_lyrics(title=title, artist=artist, file_path=file_path)
-    if lyrics is None:
-        return JSONResponse({"error": "No lyrics found"}, status_code=404)
-
-    return lyrics.to_dict()
-
-
-@router.get("/api/lyrics/search")
-async def search_lyrics(
-    title: str = Query(..., description="Song title"),
-    artist: str = Query("", description="Artist name"),
-):
-    """Search for lyrics by title and artist."""
-    manager = _get_manager()
-
-    lyrics = await manager.get_lyrics(title=title, artist=artist)
     if lyrics is None:
         return JSONResponse({"error": "No lyrics found"}, status_code=404)
 
