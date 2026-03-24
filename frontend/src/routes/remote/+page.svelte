@@ -360,7 +360,7 @@
 									<span class="c-title">{c.title}</span>
 									<span class="c-meta">
 										{c.artist}
-										<span class="c-source" class:word-sync={c.source === 'netease'}>{c.source === 'netease' ? 'NetEase · may have word sync' : 'LRCLIB · line sync'}</span>
+										<span class="c-source" class:word-sync={c.sync === 'word'}>{c.source} · {c.sync === 'word' ? 'word sync' : 'line sync'}</span>
 									</span>
 								</button>
 							</li>

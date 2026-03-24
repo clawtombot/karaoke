@@ -58,7 +58,9 @@ async def lyrics_candidates(
     results = []
     query = f"{artist} {title}".strip()
 
-    # NetEase: get multiple song IDs
+    # NetEase: get multiple song IDs, then check YRC availability in parallel
+    import asyncio
+
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
@@ -68,7 +70,28 @@ async def lyrics_candidates(
             )
             if resp.status_code == 200:
                 songs = resp.json().get("result", {}).get("songs", [])
-                for song in songs[:5]:
+                candidates = songs[:5]
+
+                # Check YRC for each candidate in parallel
+                async def check_yrc(song_id: int) -> bool:
+                    try:
+                        r = await client.get(
+                            f"{netease.NETEASE_BASE}/song/lyric/v1",
+                            params={"id": song_id, "yv": 1},
+                            headers={"User-Agent": netease.USER_AGENT, "Referer": "https://music.163.com/"},
+                        )
+                        if r.status_code == 200:
+                            yrc = r.json().get("yrc", {})
+                            return bool(yrc.get("lyric", "") if isinstance(yrc, dict) else "")
+                    except Exception:
+                        pass
+                    return False
+
+                yrc_checks = await asyncio.gather(
+                    *[check_yrc(s.get("id")) for s in candidates]
+                )
+
+                for song, has_yrc in zip(candidates, yrc_checks):
                     song_id = song.get("id")
                     name = song.get("name", "")
                     artists = ", ".join(a.get("name", "") for a in song.get("artists", []))
@@ -77,6 +100,7 @@ async def lyrics_candidates(
                         "title": name,
                         "artist": artists,
                         "source": "netease",
+                        "sync": "word" if has_yrc else "line",
                     })
     except Exception as e:
         logging.warning("NetEase candidate search failed: %s", e)
@@ -95,6 +119,7 @@ async def lyrics_candidates(
                             "id": f"lrclib:{item.get('id', '')}",
                             "title": item.get("trackName", ""),
                             "artist": item.get("artistName", ""),
+                            "sync": "line",
                             "source": "lrclib",
                             "album": item.get("albumName", ""),
                             "duration": item.get("duration", 0),

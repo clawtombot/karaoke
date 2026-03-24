@@ -156,6 +156,7 @@ export interface LyricsCandidate {
 	title: string;
 	artist: string;
 	source: string;
+	sync?: string; // "word" or "line"
 	album?: string;
 	duration?: number;
 }
