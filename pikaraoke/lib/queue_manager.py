@@ -237,20 +237,36 @@ class QueueManager:
             return False
         return self.reorder(index, len(self.queue) - 1)
 
-    def pop_next(self) -> dict[str, Any] | None:
-        """Remove and return the next song from the queue.
+    def pop_next(self, ready_check=None) -> dict[str, Any] | None:
+        """Remove and return the next ready song from the queue.
+
+        Args:
+            ready_check: Optional callable(song_path) -> bool. If provided,
+                songs that fail the check are skipped (kept in queue) and the
+                next eligible song is returned instead.
 
         Does not emit queue_update to avoid UI flicker during song transitions.
         The playback system emits now_playing events which trigger queue UI updates.
 
-        Returns None if queue is empty.
+        Returns None if queue is empty or no song is ready.
         """
         if not self.queue:
             return None
 
-        song = self.queue.pop(0)
-        logging.info(f"Popped song from queue: {song['title']}")
-        return song
+        if ready_check is None:
+            song = self.queue.pop(0)
+            logging.info(f"Popped song from queue: {song['title']}")
+            return song
+
+        # Find the first ready song, skip (keep) songs still processing
+        for i, item in enumerate(self.queue):
+            if ready_check(item.get("file", "")):
+                song = self.queue.pop(i)
+                logging.info(f"Popped song from queue: {song['title']}")
+                return song
+            logging.info(f"Skipping (not ready): {item.get('title', '?')}")
+
+        return None
 
     def queue_edit(self, song_path: str, action: str) -> bool:
         """Move or remove a song in the queue. Action: 'up', 'down', or 'delete'."""
