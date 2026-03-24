@@ -2,18 +2,67 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
+import re
 import unicodedata
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from pikaraoke.constants import STEMS_SUBDIR, stems_complete
 from pikaraoke.lib.dependencies import get_admin_password, get_karaoke
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
+from pikaraoke.lib.pitch.extractor import PITCH_SUBDIR
 
 router = APIRouter(tags=["files"])
+
+
+def _parse_song_name(filename: str) -> tuple[str, str]:
+    """Extract title and artist from filename for lyrics cache lookup."""
+    name, _ = os.path.splitext(filename)
+    if "---" in name:
+        name = name.rsplit("---", 1)[0]
+    elif name.endswith("]") and "[" in name:
+        bracket_pos = name.rfind("[")
+        candidate_id = name[bracket_pos + 1 : -1]
+        if len(candidate_id) == 11:
+            name = name[:bracket_pos].rstrip()
+    # Strip common YouTube tags
+    name = re.sub(
+        r"\s*[\[\(](?:official|music|lyric|audio|hd|hq|4k|remaster|live|feat\b)[^\]\)]*[\]\)]",
+        "", name, flags=re.IGNORECASE,
+    ).strip()
+    for sep in [" - ", " -- ", " — "]:
+        if sep in name:
+            parts = name.split(sep, 1)
+            return parts[1].strip(), parts[0].strip()
+    return name, ""
+
+
+def song_metadata(download_path: str, song_path: str) -> dict:
+    """Check stems, pitch, and lyrics availability for a song."""
+    basename = os.path.basename(song_path)
+    name_no_ext = os.path.splitext(basename)[0]
+
+    # Stems
+    stem_dir = os.path.join(download_path, STEMS_SUBDIR, basename)
+    has_stems = os.path.isdir(stem_dir) and stems_complete(stem_dir)
+
+    # Pitch
+    pitch_path = os.path.join(download_path, PITCH_SUBDIR, f"{name_no_ext}.json")
+    has_pitch = os.path.isfile(pitch_path)
+
+    # Lyrics (check cache via MD5 hash of "title|artist")
+    title, artist = _parse_song_name(basename)
+    normalized = f"{title}|{artist}".lower().strip()
+    h = hashlib.md5(normalized.encode()).hexdigest()
+    cache_path = os.path.join(download_path, ".lyrics_cache", f"{h}.json")
+    has_lyrics = os.path.isfile(cache_path)
+
+    return {"stems": has_stems, "pitch": has_pitch, "lyrics": has_lyrics}
 
 
 def _is_admin(request: Request) -> bool:
@@ -58,8 +107,14 @@ async def browse(
     start_index = (page - 1) * per_page
     page_songs = songs[start_index : start_index + per_page]
 
+    # Include metadata per song (stems, pitch, lyrics availability)
+    songs_with_meta = [
+        {"path": s, "meta": song_metadata(k.download_path, s)}
+        for s in page_songs
+    ]
+
     return {
-        "songs": page_songs,
+        "songs": songs_with_meta,
         "total": total,
         "page": page,
         "per_page": per_page,

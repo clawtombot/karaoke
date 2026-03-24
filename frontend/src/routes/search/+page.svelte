@@ -27,7 +27,6 @@
 	let ytResults: YTResult[] = $state([]);
 	let isSearchingLocal = $state(false);
 	let isSearchingYT = $state(false);
-	let includeNonKaraoke = $state(false);
 	let autoQueue = $state(true);
 	let addedSongs = $state(new Set<string>());
 	let downloadingUrls = $state(new Set<string>());
@@ -79,7 +78,6 @@
 		try {
 			const params = new URLSearchParams({
 				search_string: q,
-				non_karaoke: String(includeNonKaraoke),
 			});
 			const res = await fetch(api(`/api/youtube/search?${params}`));
 			if (res.ok) ytResults = await res.json();
@@ -213,10 +211,6 @@
 
 	<!-- Options -->
 	<div class="mb-4 flex items-center gap-4 px-1 text-xs" style="color: var(--color-dim)">
-		<label class="flex items-center gap-1.5">
-			<input type="checkbox" bind:checked={includeNonKaraoke} class="accent-purple-500" />
-			Include non-karaoke
-		</label>
 		<label class="flex items-center gap-1.5">
 			<input type="checkbox" bind:checked={autoQueue} class="accent-purple-500" />
 			Auto-queue on download

@@ -7,14 +7,23 @@
 	import Cookies from 'js-cookie';
 	import TabBar from '$components/TabBar.svelte';
 
+	interface SongMeta {
+		stems: boolean;
+		pitch: boolean;
+		lyrics: boolean;
+	}
+	interface SongEntry {
+		path: string;
+		meta: SongMeta;
+	}
 	interface BrowseResponse {
-		songs: string[];
+		songs: SongEntry[];
 		total: number;
 		page: number;
 		per_page: number;
 	}
 
-	let songs: string[] = $state([]);
+	let songs: SongEntry[] = $state([]);
 	let total = $state(0);
 	let page = $state(1);
 	let perPage = $state(100);
@@ -273,7 +282,9 @@
 			</div>
 		{:else}
 			<ul class="flex flex-col gap-1.5">
-				{#each songs as song, i (song)}
+				{#each songs as entry, i (entry.path)}
+					{@const song = entry.path}
+					{@const meta = entry.meta}
 					<li class="glass-light rounded-xl px-3 py-2.5">
 						<div class="flex items-center gap-3">
 							<!-- Song number -->
@@ -281,10 +292,15 @@
 								{(page - 1) * perPage + i + 1}
 							</span>
 
-							<!-- Song name -->
+							<!-- Song name + metadata -->
 							<div class="min-w-0 flex-1">
 								<div class="truncate text-sm font-medium" style="color: var(--color-text)">
 									{songName(song)}
+								</div>
+								<div class="flex gap-1.5 mt-1">
+									<span class="meta-badge" class:ready={meta.stems}>Stems</span>
+									<span class="meta-badge" class:ready={meta.pitch}>Pitch</span>
+									<span class="meta-badge" class:ready={meta.lyrics}>Lyrics</span>
 								</div>
 							</div>
 
@@ -496,6 +512,20 @@
 		transition: background 0.1s, color 0.1s;
 	}
 	.action-btn:hover { background: rgba(255, 255, 255, 0.1); color: var(--color-text); }
+	.meta-badge {
+		font-size: 0.55rem;
+		padding: 1px 5px;
+		border-radius: 4px;
+		background: rgba(255, 255, 255, 0.04);
+		color: rgba(255, 255, 255, 0.2);
+		font-weight: 600;
+		letter-spacing: 0.03em;
+		text-transform: uppercase;
+	}
+	.meta-badge.ready {
+		background: rgba(0, 210, 255, 0.1);
+		color: var(--color-teal, #00d2ff);
+	}
 	.delete-btn:hover { background: rgba(236, 72, 153, 0.15); color: var(--color-pink); }
 	.delete-confirm {
 		background: rgba(236, 72, 153, 0.2) !important;

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Cookie, HTTPException, Request
 from pydantic import BaseModel
 
 from pikaraoke.lib.dependencies import broadcast_event, get_admin_password, get_karaoke
+from pikaraoke.routes_fastapi.files import song_metadata
 
 router = APIRouter(tags=["queue"])
 
@@ -49,9 +50,13 @@ def is_admin(request: Request) -> bool:
 
 @router.get("/get_queue")
 async def get_queue():
-    """Get the current song queue."""
+    """Get the current song queue with metadata."""
     k = get_karaoke()
-    return k.queue_manager.queue
+    queue = k.queue_manager.queue
+    for item in queue:
+        if "file" in item:
+            item["meta"] = song_metadata(k.download_path, item["file"])
+    return queue
 
 
 @router.post("/enqueue")

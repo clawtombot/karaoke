@@ -8,7 +8,7 @@ from fastapi import APIRouter
 from fastapi.responses import FileResponse, JSONResponse
 
 from pikaraoke.constants import STEMS_SUBDIR
-from pikaraoke.lib.dependencies import get_karaoke
+from pikaraoke.lib.dependencies import get_karaoke, get_sio
 
 router = APIRouter(tags=["vocal"])
 
@@ -28,6 +28,9 @@ async def stem_toggle(stem: str):
         return JSONResponse({"error": "Stem splitter not enabled"}, status_code=400)
     if not k.toggle_stem(stem):
         return JSONResponse({"error": f"Invalid stem: {stem}"}, status_code=400)
+    # Broadcast to all clients (splash, remote) so Web Audio mix updates
+    sio = get_sio()
+    await sio.emit("stem_mix_update", k.stem_mix)
     return {"stem_mix": k.stem_mix}
 
 

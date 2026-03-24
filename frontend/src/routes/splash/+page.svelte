@@ -12,7 +12,6 @@
 	import * as stemMixer from '$lib/audio/stem-mixer';
 	import LyricsOverlay from '$components/LyricsOverlay.svelte';
 	import PitchGraph from '$components/PitchGraph.svelte';
-	import StemMixer from '$components/StemMixer.svelte';
 	import Hls from 'hls.js';
 
 	const np: NowPlaying = $derived(getState());
@@ -31,8 +30,8 @@
 	let stemsReady = false; // Stems loaded but waiting for video to play
 	let stemsInitiated = false; // Stem loading started for current song
 
-	async function toggleStem(stem: string) {
-		await fetch(`${base}/stem_toggle/${stem}`);
+	function toggleStem(stem: string) {
+		emit('stem_toggle', stem);
 	}
 
 	// Format time for display
@@ -485,10 +484,26 @@
 	<!-- Lyrics overlay (bottom) -->
 	<LyricsOverlay {currentTimeMs} />
 
-	<!-- Stem mixer (above now-playing bar) -->
-	{#if np.now_playing}
+	<!-- Stem indicators (right side, vertical) -->
+	{#if np.now_playing && np.stems_available}
 		<div class="splash-stems">
-			<StemMixer onToggle={toggleStem} compact />
+			{#each [
+				{ name: 'vocals', icon: 'fa-solid fa-microphone', label: 'V' },
+				{ name: 'drums', icon: 'fa-solid fa-drum', label: 'D' },
+				{ name: 'bass', icon: 'ti ti-wave-sine', label: 'B' },
+				{ name: 'guitar', icon: 'fa-solid fa-guitar', label: 'G' },
+				{ name: 'piano', icon: 'ti ti-piano', label: 'P' },
+				{ name: 'other', icon: 'ti ti-music', label: 'O' },
+			] as stem}
+				<button
+					class="stem-ind"
+					class:on={np.stem_mix[stem.name] ?? true}
+					onclick={() => toggleStem(stem.name)}
+					title={stem.name}
+				>
+					<i class={stem.icon}></i>
+				</button>
+			{/each}
 		</div>
 	{/if}
 
@@ -584,6 +599,46 @@
 		font-family: var(--font-display);
 		font-size: 5rem;
 		font-weight: 800;
+	}
+
+	/* Stem indicators (right side vertical) */
+	.splash-stems {
+		position: absolute;
+		right: 12px;
+		top: 50%;
+		transform: translateY(-50%);
+		z-index: 6;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		opacity: 0.5;
+		transition: opacity 0.2s;
+	}
+	.splash-stems:hover {
+		opacity: 1;
+	}
+	.stem-ind {
+		width: 32px;
+		height: 32px;
+		border-radius: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(0, 0, 0, 0.4);
+		color: rgba(255, 255, 255, 0.2);
+		font-size: 0.85rem;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.15s;
+	}
+	.stem-ind.on {
+		color: var(--color-teal, #00d2ff);
+		border-color: rgba(0, 210, 255, 0.3);
+		background: rgba(0, 210, 255, 0.08);
+	}
+	.stem-ind:hover {
+		border-color: rgba(255, 255, 255, 0.3);
+		background: rgba(255, 255, 255, 0.1);
 	}
 
 	/* Now playing bar */

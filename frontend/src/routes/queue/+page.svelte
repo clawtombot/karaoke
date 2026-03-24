@@ -15,6 +15,7 @@
 		title: string;
 		user: string;
 		semitones: number;
+		meta?: { stems: boolean; pitch: boolean; lyrics: boolean };
 	}
 
 	const np = $derived(getState());
@@ -327,6 +328,11 @@
 									{keyLabel(item.semitones)}
 								</span>
 							{/if}
+							{#if item.meta}
+								{#if !item.meta.stems}<span class="q-meta-badge new">1st play</span>{/if}
+								{#if !item.meta.pitch}<span class="q-meta-badge">no pitch</span>{/if}
+								{#if !item.meta.lyrics}<span class="q-meta-badge">no lyrics</span>{/if}
+							{/if}
 						</div>
 					</div>
 
@@ -446,5 +452,19 @@
 			opacity: 1;
 			transform: translateX(-50%) translateY(0);
 		}
+	}
+	.q-meta-badge {
+		font-size: 0.55rem;
+		padding: 1px 5px;
+		border-radius: 4px;
+		background: rgba(255, 255, 255, 0.04);
+		color: rgba(255, 255, 255, 0.25);
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+	}
+	.q-meta-badge.new {
+		background: rgba(250, 204, 21, 0.12);
+		color: #facc15;
 	}
 </style>

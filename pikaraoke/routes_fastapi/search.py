@@ -25,12 +25,9 @@ class DownloadBody(BaseModel):
 
 
 @router.get("/api/youtube/search")
-async def search(search_string: str, non_karaoke: bool = False):
-    """Search YouTube for karaoke videos. Returns JSON list of results."""
-    if non_karaoke:
-        results = get_search_results(search_string)
-    else:
-        results = get_search_results(search_string + " karaoke")
+async def search(search_string: str):
+    """Search YouTube for videos. Returns JSON list of results."""
+    results = get_search_results(search_string)
 
     # get_search_results returns list of (title, url, id, channel, duration) tuples
     return [

@@ -17,8 +17,50 @@ logger = logging.getLogger(__name__)
 PITCH_SUBDIR = "pitch"  # sits alongside stems/ in download_path
 
 
+def _smooth_pitch(notes: list[PitchNote], window_ms: float = 150) -> list[PitchNote]:
+    """Median-filter pitch to collapse vibrato into the center note.
+
+    Vibrato oscillates at 5-7 Hz (~150-200ms period). A time-based median
+    window absorbs the oscillation while preserving real note transitions.
+    Gaps in voiced frames are respected — smoothing doesn't cross silences.
+    """
+    if len(notes) < 3:
+        return notes
+
+    hz_arr = np.array([n.hz for n in notes])
+    t_arr = np.array([n.t for n in notes])
+    smoothed = np.copy(hz_arr)
+
+    half_sec = window_ms / 2000  # half-window in seconds
+
+    for i in range(len(hz_arr)):
+        t_center = t_arr[i]
+        lo = i
+        while lo > 0 and (t_center - t_arr[lo - 1]) <= half_sec:
+            lo -= 1
+        hi = i + 1
+        while hi < len(hz_arr) and (t_arr[hi] - t_center) <= half_sec:
+            hi += 1
+        if hi - lo >= 3:
+            smoothed[i] = np.median(hz_arr[lo:hi])
+
+    return [
+        PitchNote(
+            t=n.t,
+            hz=round(float(smoothed[i]), 2),
+            midi=round(69 + 12 * np.log2(float(smoothed[i]) / 440)),
+            voiced=n.voiced,
+        )
+        for i, n in enumerate(notes)
+    ]
+
+
 def extract_pitch_pyin(audio_path: str, sr: int = 22050, hop_length: int = 512) -> list[PitchNote]:
-    """Extract pitch using librosa.pyin (CPU, no GPU needed)."""
+    """Extract pitch using librosa.pyin (CPU, no GPU needed).
+
+    Includes an RMS-based noise gate to reject pitch from quiet bleed
+    in the vocal stem during non-singing sections.
+    """
     import librosa
 
     y, sr = librosa.load(audio_path, sr=sr)
@@ -29,11 +71,19 @@ def extract_pitch_pyin(audio_path: str, sr: int = 22050, hop_length: int = 512) 
         fmax=librosa.note_to_hz("C7"),
         hop_length=hop_length,
     )
+
+    # RMS energy per frame — noise gate rejects quiet bleed
+    rms = librosa.feature.rms(y=y, frame_length=2 * hop_length, hop_length=hop_length)[0]
+    # Threshold: frames below 5% of peak RMS are considered silence
+    rms_threshold = np.max(rms) * 0.05 if np.max(rms) > 0 else 0
+    # Align lengths (rms may be 1 frame shorter/longer)
+    min_len = min(len(f0), len(rms))
     times = librosa.times_like(f0, sr=sr, hop_length=hop_length)
 
     notes = []
-    for t, freq, voiced in zip(times, f0, voiced_flag):
-        if voiced and not np.isnan(freq):
+    for i in range(min_len):
+        freq, voiced, t = f0[i], voiced_flag[i], times[i]
+        if voiced and not np.isnan(freq) and rms[i] >= rms_threshold:
             midi = round(69 + 12 * np.log2(float(freq) / 440))
             notes.append(
                 PitchNote(
@@ -43,7 +93,7 @@ def extract_pitch_pyin(audio_path: str, sr: int = 22050, hop_length: int = 512) 
                     voiced=True,
                 )
             )
-    return notes
+    return _smooth_pitch(notes)
 
 
 def extract_pitch_crepe(audio_path: str) -> list[PitchNote]:
@@ -96,17 +146,24 @@ def extract_pitch_crepe(audio_path: str) -> list[PitchNote]:
                         voiced=True,
                     )
                 )
-        return notes
+        return _smooth_pitch(notes)
 
     except ImportError:
         logger.warning("torchcrepe not installed, falling back to pyin")
         return extract_pitch_pyin(audio_path)
 
 
-def extract_and_save(audio_path: str, output_dir: str, use_crepe: bool = False) -> str:
-    """Extract pitch and save as JSON. Returns the output path."""
-    basename = os.path.basename(audio_path)
-    name_without_ext = os.path.splitext(basename)[0]
+def extract_and_save(audio_path: str, output_dir: str, use_crepe: bool = False, output_name: str | None = None) -> str:
+    """Extract pitch and save as JSON. Returns the output path.
+
+    Args:
+        output_name: Base name for the output file (without extension).
+                     Defaults to the audio file's stem if not provided.
+    """
+    if output_name:
+        name_without_ext = os.path.splitext(output_name)[0]
+    else:
+        name_without_ext = os.path.splitext(os.path.basename(audio_path))[0]
     output_path = os.path.join(output_dir, f"{name_without_ext}.json")
 
     if os.path.exists(output_path):

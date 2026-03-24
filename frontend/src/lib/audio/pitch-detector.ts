@@ -22,6 +22,19 @@ let onPitch: ((reading: PitchReading | null) => void) | null = null;
 const CLARITY_THRESHOLD = 0.9;
 const MIN_FREQUENCY = 60; // Hz — below this is noise
 const MAX_FREQUENCY = 1500; // Hz — above this is unlikely vocal
+const MIN_RMS = 0.02; // Volume gate — ignore signal below this energy level
+
+// Vibrato smoothing — median of recent readings collapses 5-7 Hz oscillation
+const SMOOTH_SIZE = 7; // ~117ms at 60fps
+let hzBuffer: number[] = [];
+
+function medianHz(raw: number): number {
+	hzBuffer.push(raw);
+	if (hzBuffer.length > SMOOTH_SIZE) hzBuffer.shift();
+	if (hzBuffer.length < 3) return raw;
+	const sorted = [...hzBuffer].sort((a, b) => a - b);
+	return sorted[Math.floor(sorted.length / 2)];
+}
 
 /** List available audio input devices. */
 export async function getAudioInputs(): Promise<MediaDeviceInfo[]> {
@@ -81,12 +94,19 @@ function detect() {
 	if (!analyser || !detector || !inputBuffer || !audioContext) return;
 
 	analyser.getFloatTimeDomainData(inputBuffer);
+
+	// Volume gate — skip pitch detection when signal is too quiet (no one singing)
+	let sum = 0;
+	for (let i = 0; i < inputBuffer.length; i++) sum += inputBuffer[i] * inputBuffer[i];
+	const rms = Math.sqrt(sum / inputBuffer.length);
+
 	const [hz, clarity] = detector.findPitch(inputBuffer, audioContext.sampleRate);
 
-	if (clarity > CLARITY_THRESHOLD && hz > MIN_FREQUENCY && hz < MAX_FREQUENCY) {
-		const midi = Math.round(69 + 12 * Math.log2(hz / 440));
+	if (rms > MIN_RMS && clarity > CLARITY_THRESHOLD && hz > MIN_FREQUENCY && hz < MAX_FREQUENCY) {
+		const smoothed = medianHz(hz);
+		const midi = Math.round(69 + 12 * Math.log2(smoothed / 440));
 		onPitch?.({
-			hz: Math.round(hz * 100) / 100,
+			hz: Math.round(smoothed * 100) / 100,
 			midi,
 			clarity: Math.round(clarity * 1000) / 1000,
 			timestamp: audioContext.currentTime,
@@ -119,6 +139,7 @@ export function stop() {
 	detector = null;
 	inputBuffer = null;
 	onPitch = null;
+	hzBuffer = [];
 }
 
 /** Convert Hz to MIDI note number. */
