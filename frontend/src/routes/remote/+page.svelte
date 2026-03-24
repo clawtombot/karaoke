@@ -4,6 +4,7 @@
 	import { base } from '$app/paths';
 	import { getState, fetchNowPlaying } from '$lib/stores/playback.svelte';
 	import { loadLyrics, clearLyrics, getLyrics } from '$lib/stores/lyrics.svelte';
+	import { on } from '$lib/stores/socket.svelte';
 	import LyricsPanel from '$components/LyricsPanel.svelte';
 	import StemMixer from '$components/StemMixer.svelte';
 	import TabBar from '$components/TabBar.svelte';
@@ -13,10 +14,37 @@
 	let currentTimeMs = $state(0);
 	let volume = $state(0.85);
 	let transpose = $state(0);
-	let positionInterval: ReturnType<typeof setInterval> | null = null;
 	let isSeeking = $state(false);
 
+	// Client-side time interpolation: sync from server, tick locally between updates
+	let lastServerPos = 0;     // last known server position (seconds)
+	let lastServerTime = 0;    // performance.now() when we received it
+	let isPlaying = $state(false);
+	let rafId: number | null = null;
+
+	function syncFromServer(positionSec: number) {
+		lastServerPos = positionSec;
+		lastServerTime = performance.now();
+		isPlaying = true;
+		currentTimeMs = positionSec * 1000;
+	}
+
+	function interpolationLoop() {
+		if (isPlaying && !isSeeking && !np.is_paused) {
+			const elapsed = (performance.now() - lastServerTime) / 1000;
+			currentTimeMs = (lastServerPos + elapsed) * 1000;
+		}
+		rafId = requestAnimationFrame(interpolationLoop);
+	}
+
 	$effect(() => { volume = np.volume; });
+
+	// Pause/resume tracking
+	$effect(() => {
+		if (np.is_paused) {
+			isPlaying = false;
+		}
+	});
 
 	let lastUrl: string | null = null;
 	$effect(() => {
@@ -31,8 +59,11 @@
 		}
 	});
 
+	// Sync from server position (fallback for initial load)
 	$effect(() => {
-		if (!isSeeking && np.now_playing_position) currentTimeMs = np.now_playing_position * 1000;
+		if (!isSeeking && np.now_playing_position) {
+			syncFromServer(np.now_playing_position);
+		}
 	});
 
 	function formatTime(seconds: number): string {
@@ -83,14 +114,26 @@
 		await fetch(api('/seek/') + pos);
 	}
 
+	let unsubs: Array<() => void> = [];
+
 	onMount(() => {
 		fetchNowPlaying();
-		positionInterval = setInterval(() => {
-			if (!isSeeking && np.now_playing_position) currentTimeMs = np.now_playing_position * 1000;
-		}, 250);
+
+		// Start interpolation loop for smooth lyrics scrolling
+		interpolationLoop();
+
+		// Listen for real-time position from master splash via socket
+		unsubs = [
+			on('playback_position', (position: any) => {
+				if (!isSeeking) {
+					syncFromServer(position);
+				}
+			}),
+		];
 	});
 	onDestroy(() => {
-		if (positionInterval) clearInterval(positionInterval);
+		if (rafId) cancelAnimationFrame(rafId);
+		unsubs.forEach((fn) => fn());
 	});
 </script>
 
