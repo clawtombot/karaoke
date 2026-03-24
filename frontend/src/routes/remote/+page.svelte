@@ -223,39 +223,41 @@
 		<!-- Lyrics controls -->
 		{#if np.now_playing}
 			<div class="lyrics-controls">
-				<div class="offset-label">Lyrics Sync</div>
-				<div class="offset-row">
-					<button class="offset-btn" onclick={() => nudgeOffset(-100)}>-</button>
-					<input
-						type="range" min="-5000" max="5000" step="50"
-						value={lyricsOffset}
-						oninput={(e) => setOffset(Number(e.currentTarget.value))}
-						class="offset-slider"
-					/>
-					<button class="offset-btn" onclick={() => nudgeOffset(100)}>+</button>
-					<span class="offset-val" class:adjusted={lyricsOffset !== 0}>
-						{lyricsOffset >= 0 ? '+' : ''}{(lyricsOffset / 1000).toFixed(1)}s
-					</span>
-					{#if lyricsOffset !== 0}
-						<button class="offset-btn reset" onclick={() => setOffset(0)}>0</button>
-					{/if}
+				<div class="sync-row">
+					<span class="sync-label">Lyrics</span>
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="scroll-dial"
+						onwheel={(e) => { e.preventDefault(); nudgeOffset(e.deltaY > 0 ? 100 : -100); }}
+						onpointerdown={(e) => {
+							const el = e.currentTarget; el.setPointerCapture(e.pointerId);
+							const startX = e.clientX; const startVal = lyricsOffset;
+							const move = (me: PointerEvent) => setOffset(Math.round((startVal + (me.clientX - startX) * 20) / 50) * 50);
+							const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); };
+							el.addEventListener('pointermove', move); el.addEventListener('pointerup', up);
+						}}
+					>
+						<div class="dial-ticks"></div>
+						<span class="dial-val" class:adjusted={lyricsOffset !== 0}>{lyricsOffset >= 0 ? '+' : ''}{(lyricsOffset / 1000).toFixed(1)}s</span>
+					</div>
+					{#if lyricsOffset !== 0}<button class="offset-btn reset" onclick={() => setOffset(0)}>0</button>{/if}
 				</div>
-				<div class="offset-label">Pitch Sync</div>
-				<div class="offset-row">
-					<button class="offset-btn" onclick={() => setPitchOffset(pitchOffsetSec - 0.1)}>-</button>
-					<input
-						type="range" min="-5" max="5" step="0.05"
-						value={pitchOffsetSec}
-						oninput={(e) => setPitchOffset(Number(e.currentTarget.value))}
-						class="offset-slider"
-					/>
-					<button class="offset-btn" onclick={() => setPitchOffset(pitchOffsetSec + 0.1)}>+</button>
-					<span class="offset-val" class:adjusted={pitchOffsetSec !== 0}>
-						{pitchOffsetSec >= 0 ? '+' : ''}{pitchOffsetSec.toFixed(1)}s
-					</span>
-					{#if pitchOffsetSec !== 0}
-						<button class="offset-btn reset" onclick={() => setPitchOffset(0)}>0</button>
-					{/if}
+				<div class="sync-row">
+					<span class="sync-label">Pitch</span>
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="scroll-dial"
+						onwheel={(e) => { e.preventDefault(); setPitchOffset(pitchOffsetSec + (e.deltaY > 0 ? 0.1 : -0.1)); }}
+						onpointerdown={(e) => {
+							const el = e.currentTarget; el.setPointerCapture(e.pointerId);
+							const startX = e.clientX; const startVal = pitchOffsetSec;
+							const move = (me: PointerEvent) => setPitchOffset(Math.round((startVal + (me.clientX - startX) * 0.02) * 20) / 20);
+							const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); };
+							el.addEventListener('pointermove', move); el.addEventListener('pointerup', up);
+						}}
+					>
+						<div class="dial-ticks"></div>
+						<span class="dial-val" class:adjusted={pitchOffsetSec !== 0}>{pitchOffsetSec >= 0 ? '+' : ''}{pitchOffsetSec.toFixed(1)}s</span>
+					</div>
+					{#if pitchOffsetSec !== 0}<button class="offset-btn reset" onclick={() => setPitchOffset(0)}>0</button>{/if}
 				</div>
 				<button class="search-lyrics-btn" onclick={() => { showLyricsSearch = !showLyricsSearch; searchTitle = np.now_playing ?? ''; searchArtist = ''; }}>
 					Search Different Lyrics
@@ -472,14 +474,56 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
-		align-items: center;
 		margin: 6px 0;
 	}
-	.offset-row {
+	.sync-row {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		gap: 6px;
 	}
+	.sync-label {
+		font-size: 0.55rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-faint);
+		min-width: 36px;
+	}
+	.scroll-dial {
+		flex: 1;
+		height: 28px;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: rgba(0, 0, 0, 0.3);
+		overflow: hidden;
+		cursor: ew-resize;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		position: relative;
+		touch-action: none;
+		user-select: none;
+	}
+	.dial-ticks {
+		position: absolute;
+		inset: 0;
+		background: repeating-linear-gradient(
+			90deg,
+			rgba(255, 255, 255, 0.04) 0px,
+			rgba(255, 255, 255, 0.04) 1px,
+			transparent 1px,
+			transparent 8px
+		);
+	}
+	.dial-val {
+		position: relative;
+		font-size: 0.65rem;
+		font-family: var(--font-mono);
+		font-weight: 600;
+		color: var(--color-faint);
+		pointer-events: none;
+	}
+	.dial-val.adjusted { color: var(--color-teal); }
 	.offset-btn {
 		padding: 3px 8px;
 		border-radius: 6px;
@@ -492,40 +536,6 @@
 	}
 	.offset-btn:active { background: rgba(255, 255, 255, 0.1); }
 	.offset-btn.reset { color: var(--color-pink); border-color: rgba(236, 72, 153, 0.2); }
-	.offset-label {
-		font-size: 0.6rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--color-faint);
-	}
-	.offset-slider {
-		flex: 1;
-		height: 4px;
-		appearance: none;
-		-webkit-appearance: none;
-		background: rgba(255, 255, 255, 0.1);
-		border-radius: 2px;
-		outline: none;
-		cursor: pointer;
-	}
-	.offset-slider::-webkit-slider-thumb {
-		-webkit-appearance: none;
-		width: 14px;
-		height: 14px;
-		border-radius: 50%;
-		background: var(--color-teal, #00d2ff);
-		border: none;
-		cursor: pointer;
-	}
-	.offset-val {
-		min-width: 38px;
-		text-align: center;
-		font-size: 0.6rem;
-		font-family: var(--font-mono);
-		color: var(--color-faint);
-	}
-	.offset-val.adjusted { color: var(--color-teal); }
 	.search-lyrics-btn {
 		padding: 4px 12px;
 		border-radius: 8px;
