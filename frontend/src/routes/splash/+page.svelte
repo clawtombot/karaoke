@@ -12,6 +12,7 @@
 	import * as stemMixer from '$lib/audio/stem-mixer';
 	import LyricsOverlay from '$components/LyricsOverlay.svelte';
 	import PitchGraph from '$components/PitchGraph.svelte';
+	import StemMixer from '$components/StemMixer.svelte';
 	import Hls from 'hls.js';
 
 	const np: NowPlaying = $derived(getState());
@@ -21,12 +22,18 @@
 	let currentTimeSec = $state(0);
 	let singerPitch: PitchReading | null = $state(null);
 	let pitchData: Array<{ t: number; hz: number; midi: number }> = $state([]);
+	let pitchLoading = $state(false);
+	let pitchRetryId: ReturnType<typeof setInterval> | null = null;
 	let hlsInstance: Hls | null = null;
 	let currentVideoUrl: string | null = null;
 	let isMaster = $state(false);
 	let showPitchGraph = $state(true);
 	let stemsReady = false; // Stems loaded but waiting for video to play
 	let stemsInitiated = false; // Stem loading started for current song
+
+	async function toggleStem(stem: string) {
+		await fetch(`${base}/stem_toggle/${stem}`);
+	}
 
 	// Format time for display
 	function formatTime(seconds: number): string {
@@ -176,11 +183,24 @@
 		const streamUid = url.split('/').pop()?.replace(/\.(m3u8|mp4)$/, '') ?? '';
 		loadLyrics(streamUid);
 
-		// Load pitch data
-		fetch(`${base}/api/pitch/${streamUid}`)
-			.then((r) => (r.ok ? r.json() : []))
-			.then((data) => (pitchData = data))
-			.catch(() => (pitchData = []));
+		// Load pitch data (retry until available — stems may still be splitting)
+		if (pitchRetryId) clearInterval(pitchRetryId);
+		pitchData = [];
+		pitchLoading = true;
+		const fetchPitch = () => {
+			fetch(`${base}/api/pitch/${streamUid}`)
+				.then((r) => (r.ok ? r.json() : null))
+				.then((data) => {
+					if (data && data.length > 0) {
+						pitchData = data;
+						pitchLoading = false;
+						if (pitchRetryId) { clearInterval(pitchRetryId); pitchRetryId = null; }
+					}
+				})
+				.catch(() => {});
+		};
+		fetchPitch();
+		pitchRetryId = setInterval(fetchPitch, 5000);
 
 		// Load stems if already available (cached from previous play)
 		if (np.stems_available && np.stem_urls) {
@@ -200,6 +220,23 @@
 			stemMixer.teardown();
 			clearLyrics();
 			pitchData = [];
+			pitchLoading = false;
+			if (pitchRetryId) { clearInterval(pitchRetryId); pitchRetryId = null; }
+		}
+	});
+
+	// Reactive play/pause sync — self-healing safety net.
+	// If the video state doesn't match np.is_paused (missed socket event,
+	// reconnect, race condition), this effect corrects it.
+	$effect(() => {
+		const paused = np.is_paused;
+		if (!video || !np.now_playing) return;
+		if (paused && !video.paused) {
+			video.pause();
+			stemMixer.pause();
+		} else if (!paused && video.paused) {
+			video.play().catch(() => {});
+			stemMixer.resume();
 		}
 	});
 
@@ -441,11 +478,19 @@
 		referenceNotes={pitchData}
 		{singerPitch}
 		{currentTimeSec}
-		visible={showPitchGraph && !!np.now_playing && pitchData.length > 0}
+		visible={showPitchGraph && !!np.now_playing}
+		loading={pitchLoading && pitchData.length === 0}
 	/>
 
 	<!-- Lyrics overlay (bottom) -->
 	<LyricsOverlay {currentTimeMs} />
+
+	<!-- Stem mixer (above now-playing bar) -->
+	{#if np.now_playing}
+		<div class="splash-stems">
+			<StemMixer onToggle={toggleStem} compact />
+		</div>
+	{/if}
 
 	<!-- Now playing bar (bottom) -->
 	{#if np.now_playing}

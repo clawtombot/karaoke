@@ -15,6 +15,7 @@ Output layout (relative to download_path):
       piano.m4a
 """
 
+import fcntl
 import logging
 import os
 import subprocess
@@ -189,7 +190,7 @@ def _process_one(download_path: str, basename: str) -> bool:
             from pikaraoke.lib.pitch.extractor import PITCH_SUBDIR
 
             pitch_dir = os.path.join(download_path, PITCH_SUBDIR)
-            extract_and_save(vocals_m4a, pitch_dir)
+            extract_and_save(vocals_m4a, pitch_dir, output_name=basename)
         except Exception as e:
             logger.warning("Pitch extraction failed (non-fatal): %s", e)
 
@@ -202,14 +203,29 @@ def run_worker(download_path: str, **_kwargs) -> None:
     Each song is processed in its own subprocess so that Metal/MLX GPU memory
     is fully released when processing completes (the OS reclaims all memory
     when the child exits).
+
+    Uses a lock file to ensure only one daemon runs per download_path.
     """
     import sys
 
     logging.basicConfig(level=logging.INFO, format="[stem-splitter] %(levelname)s %(message)s")
-    logger.info("Starting stem splitter worker (download_path=%s)", download_path)
 
     stems_base = os.path.join(download_path, STEMS_SUBDIR)
     os.makedirs(stems_base, exist_ok=True)
+
+    # Acquire exclusive lock — prevents duplicate daemons after pikaraoke restarts
+    lock_path = os.path.join(stems_base, ".worker.lock")
+    lock_file = open(lock_path, "w")  # noqa: SIM115
+    try:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        logger.info("Another stem splitter already running for %s, exiting", download_path)
+        lock_file.close()
+        return
+
+    lock_file.write(str(os.getpid()))
+    lock_file.flush()
+    logger.info("Starting stem splitter worker (download_path=%s)", download_path)
 
     while True:
         try:
