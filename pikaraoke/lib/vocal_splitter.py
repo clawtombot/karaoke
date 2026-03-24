@@ -218,11 +218,18 @@ def _get_pending_songs(download_path: str) -> list[str]:
 
         stem_dir = os.path.join(stems_base, bn)
 
-        if os.path.isfile(os.path.join(stem_dir, ".error")):
-            continue
-
         if os.path.isdir(stem_dir) and stems_complete(stem_dir):
             continue
+
+        # Skip .error only if demucs itself failed (no stems at all).
+        # If demucs is done but vocal split isn't, clear the stale .error
+        # and allow retry — the error was from before vocal split existed.
+        error_file = os.path.join(stem_dir, ".error")
+        if os.path.isfile(error_file):
+            if demucs_complete(stem_dir):
+                os.remove(error_file)
+            else:
+                continue
 
         pending.append(bn)
 
