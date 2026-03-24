@@ -242,6 +242,7 @@ from pikaraoke.routes_fastapi.stream import router as stream_router
 from pikaraoke.routes_fastapi.lyrics import router as lyrics_router
 from pikaraoke.routes_fastapi.pitch import router as pitch_router
 from pikaraoke.routes_fastapi.vocal import router as vocal_router
+from pikaraoke.routes_fastapi.song_config import router as song_config_router
 
 for r in [
     controller_router,
@@ -252,6 +253,7 @@ for r in [
     vocal_router,
     lyrics_router,
     pitch_router,
+    song_config_router,
     bg_music_router,
     images_router,
     info_router,

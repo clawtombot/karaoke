@@ -9,6 +9,7 @@ export interface NowPlaying {
 	now_playing_duration: number | null;
 	now_playing_transpose: number;
 	now_playing_url: string | null;
+	now_playing_file: string | null;
 	now_playing_subtitle_url: string | null;
 	now_playing_position: number | null;
 	is_paused: boolean;
@@ -29,6 +30,7 @@ const DEFAULT_STATE: NowPlaying = {
 	now_playing_duration: null,
 	now_playing_transpose: 0,
 	now_playing_url: null,
+	now_playing_file: null,
 	now_playing_subtitle_url: null,
 	now_playing_position: null,
 	is_paused: true,

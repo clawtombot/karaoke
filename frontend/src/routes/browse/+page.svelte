@@ -7,12 +7,18 @@
 	import Cookies from 'js-cookie';
 	import TabBar from '$components/TabBar.svelte';
 
+	interface SongConfig {
+		lyrics_offset_ms?: number;
+		pitch_offset_sec?: number;
+		noise_gate?: number;
+	}
 	interface SongMeta {
 		stems: boolean;
 		pitch: boolean;
 		lyrics: boolean;
 		lyrics_source: string | null;
 		lyrics_word_sync: boolean;
+		config: SongConfig;
 	}
 	interface SongEntry {
 		path: string;
@@ -343,6 +349,15 @@
 									{:else}
 										<span class="meta-badge">Lyrics</span>
 									{/if}
+									{#if meta.config?.lyrics_offset_ms}
+										<span class="meta-badge tuned">Lyrics {meta.config.lyrics_offset_ms > 0 ? '+' : ''}{(meta.config.lyrics_offset_ms / 1000).toFixed(1)}s</span>
+									{/if}
+									{#if meta.config?.pitch_offset_sec}
+										<span class="meta-badge tuned">Pitch {meta.config.pitch_offset_sec > 0 ? '+' : ''}{meta.config.pitch_offset_sec.toFixed(1)}s</span>
+									{/if}
+									{#if meta.config?.noise_gate}
+										<span class="meta-badge tuned">Gate {(meta.config.noise_gate * 100).toFixed(0)}%</span>
+									{/if}
 								</div>
 							</div>
 
@@ -567,6 +582,10 @@
 	.meta-badge.ready {
 		background: rgba(0, 210, 255, 0.1);
 		color: var(--color-teal, #00d2ff);
+	}
+	.meta-badge.tuned {
+		background: rgba(250, 204, 21, 0.1);
+		color: #facc15;
 	}
 	.delete-btn:hover { background: rgba(236, 72, 153, 0.15); color: var(--color-pink); }
 	.delete-confirm {

@@ -578,8 +578,11 @@ class Karaoke:
                     "error": has_error,
                 }
 
+        now_basename = os.path.basename(now_file) if now_file else None
+
         return {
             **playback_state,
+            "now_playing_file": now_basename,
             "up_next": next_song["title"] if next_song else None,
             "next_user": next_song["user"] if next_song else None,
             "volume": self.volume,

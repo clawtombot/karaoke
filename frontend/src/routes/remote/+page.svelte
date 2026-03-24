@@ -3,7 +3,10 @@
 	import { api } from '$lib/api';
 	import { base } from '$app/paths';
 	import { getState, fetchNowPlaying } from '$lib/stores/playback.svelte';
-	import { loadLyrics, clearLyrics, getLyrics, nudgeOffset, getOffset, setOffset, searchCandidates, selectCandidate, type LyricsCandidate } from '$lib/stores/lyrics.svelte';
+	import { loadLyrics, clearLyrics, getLyrics, nudgeOffset as _nudgeOffset, getOffset, setOffset as _setOffset, searchCandidates, selectCandidate, type LyricsCandidate } from '$lib/stores/lyrics.svelte';
+
+	function setOffset(ms: number) { _setOffset(ms); saveSongConfig(); }
+	function nudgeOffset(ms: number) { _nudgeOffset(ms); saveSongConfig(); }
 	import { on, emit } from '$lib/stores/socket.svelte';
 	import LyricsPanel from '$components/LyricsPanel.svelte';
 	import StemMixer from '$components/StemMixer.svelte';
@@ -21,10 +24,31 @@
 	function setPitchOffset(sec: number) {
 		pitchOffsetSec = sec;
 		emit('pitch_offset', sec);
+		saveSongConfig();
 	}
 	function setPitchNoiseGate(val: number) {
 		pitchNoiseGate = Math.round(val * 100) / 100;
 		emit('pitch_noise_gate', pitchNoiseGate);
+		saveSongConfig();
+	}
+
+	// Persist offsets server-side per song
+	let saveTimer: ReturnType<typeof setTimeout> | null = null;
+	function saveSongConfig() {
+		if (saveTimer) clearTimeout(saveTimer);
+		saveTimer = setTimeout(() => {
+			const file = np.now_playing_file;
+			if (!file) return;
+			fetch(api(`/api/song_config/${encodeURIComponent(file)}`), {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					lyrics_offset_ms: lyricsOffset || null,
+					pitch_offset_sec: pitchOffsetSec || null,
+					noise_gate: pitchNoiseGate !== 0.05 ? pitchNoiseGate : null,
+				}),
+			}).catch(() => {});
+		}, 500);
 	}
 
 	// Lyrics search

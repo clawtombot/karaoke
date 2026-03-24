@@ -17,6 +17,7 @@ from pikaraoke.constants import STEMS_SUBDIR, stems_complete
 from pikaraoke.lib.dependencies import get_admin_password, get_karaoke
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
 from pikaraoke.lib.pitch.extractor import PITCH_SUBDIR, extract_and_save as extract_pitch
+from pikaraoke.routes_fastapi.song_config import get_song_config
 
 router = APIRouter(tags=["files"])
 
@@ -73,12 +74,16 @@ def song_metadata(download_path: str, song_path: str) -> dict:
         except Exception:
             pass
 
+    # Per-song config (offsets, noise gate)
+    cfg = get_song_config(basename)
+
     return {
         "stems": has_stems,
         "pitch": has_pitch,
         "lyrics": has_lyrics,
         "lyrics_source": lyrics_source,
         "lyrics_word_sync": lyrics_word_sync,
+        "config": cfg,
     }
 
 
