@@ -354,10 +354,16 @@
 			}
 		}
 
-		// ── Backing vocal segments (harmony line) ──
+		// ── Backing vocal segments (harmony line — skip if same MIDI as lead) ──
 		for (let i = 0; i < backingSegments.length; i++) {
 			const seg = backingSegments[i];
 			if (seg.endTime < visStart || seg.startTime > visEnd) continue;
+
+			// Skip if a lead segment overlaps in time AND has the same MIDI note
+			const overlapsLead = segments.some(
+				(ls) => ls.midi === seg.midi && ls.startTime < seg.endTime && ls.endTime > seg.startTime
+			);
+			if (overlapsLead) continue;
 
 			let x1 = ((seg.startTime - adjTime) / WINDOW_SECONDS) * w + w * CURSOR_X_RATIO;
 			let x2 = ((seg.endTime - adjTime) / WINDOW_SECONDS) * w + w * CURSOR_X_RATIO;
