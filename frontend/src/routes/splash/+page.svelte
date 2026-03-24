@@ -28,6 +28,7 @@
 	let isMaster = $state(false);
 	let showPitchGraph = $state(true);
 	let pitchOffsetSec = $state(0);
+	let pitchNoiseGate = $state(0.05);
 	let stemsReady = false; // Stems loaded but waiting for video to play
 	let stemsInitiated = false; // Stem loading started for current song
 	let stemGeneration = 0; // Increments on song change to cancel stale loads
@@ -342,6 +343,9 @@
 			on('pitch_offset', (sec: any) => {
 				pitchOffsetSec = Number(sec);
 			}),
+			on('pitch_noise_gate', (gate: any) => {
+				pitchNoiseGate = Number(gate);
+			}),
 		];
 
 		// Start rAF loop
@@ -499,6 +503,7 @@
 		visible={showPitchGraph && !!np.now_playing}
 		loading={pitchLoading && pitchData.length === 0}
 		offsetSec={pitchOffsetSec}
+		noiseGate={pitchNoiseGate}
 	/>
 
 	<!-- Lyrics overlay (bottom) -->

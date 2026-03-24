@@ -17,9 +17,14 @@
 
 	// Pitch graph sync
 	let pitchOffsetSec = $state(0);
+	let pitchNoiseGate = $state(0.05);
 	function setPitchOffset(sec: number) {
 		pitchOffsetSec = sec;
 		emit('pitch_offset', sec);
+	}
+	function setPitchNoiseGate(val: number) {
+		pitchNoiseGate = Math.round(val * 100) / 100;
+		emit('pitch_noise_gate', pitchNoiseGate);
 	}
 
 	// Lyrics search
@@ -258,6 +263,24 @@
 						<span class="dial-val" class:adjusted={pitchOffsetSec !== 0}>{pitchOffsetSec >= 0 ? '+' : ''}{pitchOffsetSec.toFixed(1)}s</span>
 					</div>
 					{#if pitchOffsetSec !== 0}<button class="offset-btn reset" onclick={() => setPitchOffset(0)}>0</button>{/if}
+				</div>
+				<div class="sync-row">
+					<span class="sync-label">Gate</span>
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="scroll-dial"
+						onwheel={(e) => { e.preventDefault(); setPitchNoiseGate(Math.max(0, Math.min(1, pitchNoiseGate + (e.deltaY > 0 ? 0.01 : -0.01)))); }}
+						onpointerdown={(e) => {
+							const el = e.currentTarget; el.setPointerCapture(e.pointerId);
+							const startX = e.clientX; const startVal = pitchNoiseGate;
+							const move = (me: PointerEvent) => setPitchNoiseGate(Math.max(0, Math.min(1, startVal + (me.clientX - startX) * 0.002)));
+							const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); };
+							el.addEventListener('pointermove', move); el.addEventListener('pointerup', up);
+						}}
+					>
+						<div class="dial-ticks"></div>
+						<span class="dial-val" class:adjusted={pitchNoiseGate !== 0.05}>{(pitchNoiseGate * 100).toFixed(0)}%</span>
+					</div>
+					{#if pitchNoiseGate !== 0.05}<button class="offset-btn reset" onclick={() => setPitchNoiseGate(0.05)}>5%</button>{/if}
 				</div>
 				<button class="search-lyrics-btn" onclick={() => { showLyricsSearch = !showLyricsSearch; searchTitle = np.now_playing ?? ''; searchArtist = ''; }}>
 					Search Different Lyrics

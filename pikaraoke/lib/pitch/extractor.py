@@ -75,13 +75,15 @@ def _pyin_chunk(
     notes = []
     for i in range(min_len):
         freq, voiced, t = f0[i], voiced_flag[i], times[i]
-        if voiced and not np.isnan(freq) and rms[i] >= rms_threshold:
+        if voiced and not np.isnan(freq):
             midi = round(69 + 12 * np.log2(float(freq) / 440))
+            amp = float(rms[i] / global_rms_peak) if global_rms_peak > 0 else 0
             notes.append(PitchNote(
                 t=round(float(t + time_offset), 4),
                 hz=round(float(freq), 2),
                 midi=midi,
                 voiced=True,
+                amp=round(amp, 3),
             ))
     return notes
 
@@ -117,7 +119,7 @@ def extract_pitch_pyin(
         # Write partial results so frontend can start displaying
         if output_path:
             smoothed = _smooth_pitch(all_notes)
-            data = [{"t": n.t, "hz": n.hz, "midi": n.midi} for n in smoothed]
+            data = [{"t": n.t, "hz": n.hz, "midi": n.midi, "amp": n.amp} for n in smoothed]
             with open(output_path, "w") as f:
                 json.dump(data, f)
 
@@ -208,7 +210,7 @@ def extract_and_save(audio_path: str, output_dir: str, use_crepe: bool = False, 
         notes = extract_pitch_pyin(audio_path, output_path=output_path)
 
     # Final write (ensures smoothed complete data; also covers crepe path)
-    data = [{"t": n.t, "hz": n.hz, "midi": n.midi} for n in notes]
+    data = [{"t": n.t, "hz": n.hz, "midi": n.midi, "amp": n.amp} for n in notes]
     with open(output_path, "w") as f:
         json.dump(data, f)
 

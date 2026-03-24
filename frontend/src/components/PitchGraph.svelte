@@ -10,6 +10,7 @@
 		t: number;
 		hz: number;
 		midi: number;
+		amp?: number;
 	}
 
 	interface NoteSegment {
@@ -35,6 +36,7 @@
 		visible = true,
 		loading = false,
 		offsetSec = 0,
+		noiseGate = 0.05,
 	}: {
 		referenceNotes: PitchNote[];
 		singerPitch: PitchReading | null;
@@ -42,6 +44,7 @@
 		visible: boolean;
 		loading: boolean;
 		offsetSec: number;
+		noiseGate: number;
 	} = $props();
 
 	let canvas: HTMLCanvasElement;
@@ -52,15 +55,17 @@
 	const FALLBACK_MAX = 84;
 
 	let minMidi = $derived.by(() => {
-		if (referenceNotes.length === 0) return FALLBACK_MIN;
+		const notes = referenceNotes.filter((n) => (n.amp ?? 1) >= noiseGate);
+		if (notes.length === 0) return FALLBACK_MIN;
 		let lo = Infinity;
-		for (const n of referenceNotes) if (n.midi < lo) lo = n.midi;
+		for (const n of notes) if (n.midi < lo) lo = n.midi;
 		return Math.max(0, lo - PADDING_SEMITONES);
 	});
 	let maxMidi = $derived.by(() => {
-		if (referenceNotes.length === 0) return FALLBACK_MAX;
+		const notes = referenceNotes.filter((n) => (n.amp ?? 1) >= noiseGate);
+		if (notes.length === 0) return FALLBACK_MAX;
 		let hi = -Infinity;
-		for (const n of referenceNotes) if (n.midi > hi) hi = n.midi;
+		for (const n of notes) if (n.midi > hi) hi = n.midi;
 		return Math.min(127, hi + PADDING_SEMITONES);
 	});
 
@@ -73,18 +78,19 @@
 	const YELLOW = '#ffdd00';
 	const RED = '#ff4444';
 
-	// Merge consecutive same-MIDI frames into note segments
+	// Filter by noise gate, then merge consecutive same-MIDI frames into segments
 	let segments: NoteSegment[] = $derived.by(() => {
-		if (referenceNotes.length === 0) return [];
+		const filtered = referenceNotes.filter((n) => (n.amp ?? 1) >= noiseGate);
+		if (filtered.length === 0) return [];
 		const segs: NoteSegment[] = [];
 		let cur: NoteSegment = {
-			startTime: referenceNotes[0].t,
-			endTime: referenceNotes[0].t,
-			midi: referenceNotes[0].midi,
-			hz: referenceNotes[0].hz,
+			startTime: filtered[0].t,
+			endTime: filtered[0].t,
+			midi: filtered[0].midi,
+			hz: filtered[0].hz,
 		};
-		for (let i = 1; i < referenceNotes.length; i++) {
-			const note = referenceNotes[i];
+		for (let i = 1; i < filtered.length; i++) {
+			const note = filtered[i];
 			if (note.midi === cur.midi && note.t - cur.endTime < 0.08) {
 				cur.endTime = note.t;
 			} else {
