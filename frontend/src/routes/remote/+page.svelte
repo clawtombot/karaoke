@@ -49,7 +49,7 @@
 		selectingId = '';
 		if (ok) {
 			showLyricsSearch = false;
-			candidates = [];
+			// Keep candidates + query so user can reopen and pick a different one
 		}
 	}
 	let transpose = $state(0);
@@ -282,7 +282,7 @@
 					</div>
 					{#if pitchNoiseGate !== 0.05}<button class="offset-btn reset" onclick={() => setPitchNoiseGate(0.05)}>5%</button>{/if}
 				</div>
-				<button class="search-lyrics-btn" onclick={() => { showLyricsSearch = !showLyricsSearch; searchTitle = np.now_playing ?? ''; searchArtist = ''; }}>
+				<button class="search-lyrics-btn" onclick={() => { showLyricsSearch = !showLyricsSearch; if (!searchTitle) searchTitle = np.now_playing ?? ''; }}>
 					Search Different Lyrics
 				</button>
 			</div>
