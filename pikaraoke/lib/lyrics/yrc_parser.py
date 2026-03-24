@@ -14,6 +14,27 @@ from pikaraoke.lib.lyrics.models import LyricsLine, LyricsWord
 LINE_PATTERN = re.compile(r"^\[(\d+),(\d+)\](.*)$")
 WORD_PATTERN = re.compile(r"(?:\[\d+,\d+\])?\((\d+),(\d+),\d+\)((?:.(?!\(\d+,\d+,\d+\)))*.)")
 
+# Metadata prefixes that NetEase embeds as fake lyric lines (credits, not lyrics)
+_METADATA_PREFIXES = ("作曲", "作词", "编曲", "制作", "混音", "录音", "母带", "出品", "监制", "策划")
+
+
+def _is_metadata_line(text: str) -> bool:
+    """Return True if the line is a metadata credit, not actual lyrics."""
+    stripped = text.strip()
+    return any(stripped.startswith(p) for p in _METADATA_PREFIXES)
+
+
+def _clean_word(text: str) -> str:
+    """Clean YRC word text artifacts.
+
+    Strips trailing apostrophes that YRC uses as line-break markers
+    (e.g. "give'" → "give", "trash'" → "trash") while preserving
+    internal apostrophes in contractions (e.g. "don't", "That's").
+    """
+    if len(text) > 1 and text.endswith("'"):
+        return text[:-1]
+    return text
+
 
 def parse_yrc(yrc_text: str) -> list[LyricsLine]:
     """Parse YRC text into a list of LyricsLine with word-level timing.
@@ -45,7 +66,7 @@ def parse_yrc(yrc_text: str) -> list[LyricsLine]:
         for word_match in WORD_PATTERN.finditer(word_section):
             word_start = float(word_match.group(1))
             word_duration = float(word_match.group(2))
-            word_text = word_match.group(3).strip()
+            word_text = _clean_word(word_match.group(3).strip())
 
             if not word_text:
                 continue
@@ -59,8 +80,11 @@ def parse_yrc(yrc_text: str) -> list[LyricsLine]:
             )
             full_text_parts.append(word_text)
 
-        line_text = "".join(full_text_parts)
+        line_text = " ".join(full_text_parts)
         if not line_text.strip():
+            continue
+
+        if _is_metadata_line(line_text):
             continue
 
         lines.append(
