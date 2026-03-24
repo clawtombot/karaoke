@@ -108,12 +108,12 @@
 			if (note.midi === cur.midi && note.t - cur.endTime < mergeGap) {
 				cur.endTime = note.t;
 			} else {
-				cur.endTime += 0.03;
+				cur.endTime += Math.min(0.03, mergeGap * 0.4);
 				segs.push({ ...cur });
 				cur = { startTime: note.t, endTime: note.t, midi: note.midi, hz: note.hz };
 			}
 		}
-		cur.endTime += 0.03;
+		cur.endTime += Math.min(0.03, mergeGap * 0.4);
 		segs.push({ ...cur });
 		return segs;
 	});
@@ -134,12 +134,12 @@
 			if (note.midi === cur.midi && note.t - cur.endTime < mergeGap) {
 				cur.endTime = note.t;
 			} else {
-				cur.endTime += 0.03;
+				cur.endTime += Math.min(0.03, mergeGap * 0.4);
 				segs.push({ ...cur });
 				cur = { startTime: note.t, endTime: note.t, midi: note.midi, hz: note.hz };
 			}
 		}
-		cur.endTime += 0.03;
+		cur.endTime += Math.min(0.03, mergeGap * 0.4);
 		segs.push({ ...cur });
 		return segs;
 	});
