@@ -21,6 +21,8 @@
 	let currentTimeSec = $state(0);
 	let singerPitch: PitchReading | null = $state(null);
 	let pitchData: Array<{ t: number; hz: number; midi: number }> = $state([]);
+	let backingPitchData: Array<{ t: number; hz: number; midi: number }> = $state([]);
+	let singerInfo: { lead?: string; backing?: string } = $state({});
 	let pitchLoading = $state(false);
 	let pitchRetryId: ReturnType<typeof setInterval> | null = null;
 	let hlsInstance: Hls | null = null;
@@ -202,6 +204,8 @@
 		// Load pitch data (retry until available — stems may still be splitting)
 		if (pitchRetryId) clearInterval(pitchRetryId);
 		pitchData = [];
+		backingPitchData = [];
+		singerInfo = {};
 		pitchLoading = true;
 		const fetchPitch = () => {
 			fetch(`${base}/api/pitch/${streamUid}`)
@@ -213,6 +217,16 @@
 						if (pitchRetryId) { clearInterval(pitchRetryId); pitchRetryId = null; }
 					}
 				})
+				.catch(() => {});
+			// Backing vocals pitch (harmony line)
+			fetch(`${base}/api/pitch_backing/${streamUid}`)
+				.then((r) => (r.ok ? r.json() : null))
+				.then((data) => { if (data && data.length > 0) backingPitchData = data; })
+				.catch(() => {});
+			// Singer gender info (for colors)
+			fetch(`${base}/api/singer/${streamUid}`)
+				.then((r) => (r.ok ? r.json() : null))
+				.then((data) => { if (data) singerInfo = data; })
 				.catch(() => {});
 		};
 		fetchPitch();
@@ -236,6 +250,8 @@
 			stemMixer.teardown();
 			clearLyrics();
 			pitchData = [];
+			backingPitchData = [];
+			singerInfo = {};
 			pitchLoading = false;
 			if (pitchRetryId) { clearInterval(pitchRetryId); pitchRetryId = null; }
 		}
@@ -498,12 +514,15 @@
 	<!-- Pitch graph overlay (top) -->
 	<PitchGraph
 		referenceNotes={pitchData}
+		backingNotes={backingPitchData}
 		{singerPitch}
 		{currentTimeSec}
 		visible={showPitchGraph && !!np.now_playing}
 		loading={pitchLoading && pitchData.length === 0}
 		offsetSec={pitchOffsetSec}
 		noiseGate={pitchNoiseGate}
+		leadColor={singerInfo.lead === 'female' ? '#ff69b4' : '#4da6ff'}
+		backingColor={singerInfo.backing === 'female' ? '#ff69b4' : '#4da6ff'}
 	/>
 
 	<!-- Lyrics overlay (bottom) -->

@@ -326,18 +326,26 @@ def _process_one(download_path: str, basename: str, vocal_split_model: str = VOC
     if not os.path.isfile(singer_json):
         _detect_singer_info(stem_dir)
 
-    # Phase 5: Pitch extraction from lead vocals (replaces old vocals-based extraction)
-    lead_m4a = os.path.join(stem_dir, "lead_vocals.m4a")
-    pitch_source = lead_m4a if os.path.isfile(lead_m4a) else os.path.join(stem_dir, "vocals.m4a")
-    if os.path.isfile(pitch_source):
-        try:
-            from pikaraoke.lib.pitch import extract_and_save
-            from pikaraoke.lib.pitch.extractor import PITCH_SUBDIR
+    # Phase 5: Pitch extraction from lead AND backing vocals
+    try:
+        from pikaraoke.lib.pitch import extract_and_save
+        from pikaraoke.lib.pitch.extractor import PITCH_SUBDIR
 
-            pitch_dir = os.path.join(download_path, PITCH_SUBDIR)
+        pitch_dir = os.path.join(download_path, PITCH_SUBDIR)
+        name_base = os.path.splitext(basename)[0]
+
+        # Lead vocals pitch (main pitch graph)
+        lead_m4a = os.path.join(stem_dir, "lead_vocals.m4a")
+        pitch_source = lead_m4a if os.path.isfile(lead_m4a) else os.path.join(stem_dir, "vocals.m4a")
+        if os.path.isfile(pitch_source):
             extract_and_save(pitch_source, pitch_dir, output_name=basename)
-        except Exception as e:
-            logger.warning("Pitch extraction failed (non-fatal): %s", e)
+
+        # Backing vocals pitch (harmony line)
+        backing_m4a = os.path.join(stem_dir, "backing_vocals.m4a")
+        if os.path.isfile(backing_m4a):
+            extract_and_save(backing_m4a, pitch_dir, output_name=f"{name_base}_backing")
+    except Exception as e:
+        logger.warning("Pitch extraction failed (non-fatal): %s", e)
 
     logger.info("All stems ready for: %s", basename)
     return True

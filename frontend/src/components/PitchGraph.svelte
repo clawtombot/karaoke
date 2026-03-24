@@ -31,20 +31,26 @@
 
 	let {
 		referenceNotes = [],
+		backingNotes = [],
 		singerPitch = null,
 		currentTimeSec = 0,
 		visible = true,
 		loading = false,
 		offsetSec = 0,
 		noiseGate = 0.05,
+		leadColor = '#ff69b4',
+		backingColor = '#4da6ff',
 	}: {
 		referenceNotes: PitchNote[];
+		backingNotes: PitchNote[];
 		singerPitch: PitchReading | null;
 		currentTimeSec: number;
 		visible: boolean;
 		loading: boolean;
 		offsetSec: number;
 		noiseGate: number;
+		leadColor: string;
+		backingColor: string;
 	} = $props();
 
 	let canvas: HTMLCanvasElement;
@@ -54,15 +60,18 @@
 	const FALLBACK_MIN = 48;
 	const FALLBACK_MAX = 84;
 
+	// Combine lead + backing notes for range calculation
+	let allNotes = $derived([...referenceNotes, ...backingNotes]);
+
 	let minMidi = $derived.by(() => {
-		const notes = referenceNotes.filter((n) => (n.amp ?? 1) >= noiseGate);
+		const notes = allNotes.filter((n) => (n.amp ?? 1) >= noiseGate);
 		if (notes.length === 0) return FALLBACK_MIN;
 		let lo = Infinity;
 		for (const n of notes) if (n.midi < lo) lo = n.midi;
 		return Math.max(0, lo - PADDING_SEMITONES);
 	});
 	let maxMidi = $derived.by(() => {
-		const notes = referenceNotes.filter((n) => (n.amp ?? 1) >= noiseGate);
+		const notes = allNotes.filter((n) => (n.amp ?? 1) >= noiseGate);
 		if (notes.length === 0) return FALLBACK_MAX;
 		let hi = -Infinity;
 		for (const n of notes) if (n.midi > hi) hi = n.midi;
@@ -81,6 +90,32 @@
 	// Filter by noise gate, then merge consecutive same-MIDI frames into segments
 	let segments: NoteSegment[] = $derived.by(() => {
 		const filtered = referenceNotes.filter((n) => (n.amp ?? 1) >= noiseGate);
+		if (filtered.length === 0) return [];
+		const segs: NoteSegment[] = [];
+		let cur: NoteSegment = {
+			startTime: filtered[0].t,
+			endTime: filtered[0].t,
+			midi: filtered[0].midi,
+			hz: filtered[0].hz,
+		};
+		for (let i = 1; i < filtered.length; i++) {
+			const note = filtered[i];
+			if (note.midi === cur.midi && note.t - cur.endTime < 0.08) {
+				cur.endTime = note.t;
+			} else {
+				cur.endTime += 0.03;
+				segs.push({ ...cur });
+				cur = { startTime: note.t, endTime: note.t, midi: note.midi, hz: note.hz };
+			}
+		}
+		cur.endTime += 0.03;
+		segs.push({ ...cur });
+		return segs;
+	});
+
+	// Backing vocal segments (same merging logic, different source)
+	let backingSegments: NoteSegment[] = $derived.by(() => {
+		const filtered = backingNotes.filter((n) => (n.amp ?? 1) >= noiseGate);
 		if (filtered.length === 0) return [];
 		const segs: NoteSegment[] = [];
 		let cur: NoteSegment = {
@@ -160,8 +195,6 @@
 		return closest;
 	}
 
-	const NOTE_COLOR = '#ff69b4';
-
 	/** Build a single merged path: knob circle + pill body as one clean outline. */
 	function pillPath(
 		ctx: CanvasRenderingContext2D,
@@ -192,24 +225,33 @@
 		ctx.closePath();
 	}
 
+	/** Convert hex color to rgba string. */
+	function hexToRgba(hex: string, alpha: number): string {
+		const r = parseInt(hex.slice(1, 3), 16);
+		const g = parseInt(hex.slice(3, 5), 16);
+		const b = parseInt(hex.slice(5, 7), 16);
+		return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+	}
+
 	/** Draw a pill-shaped bar with knob — single merged path, no seam. */
 	function drawPill(
 		ctx: CanvasRenderingContext2D,
 		x: number, y: number, w: number, h: number,
-		filled: boolean
+		filled: boolean,
+		color: string = leadColor,
 	) {
 		pillPath(ctx, x, y, w, h);
 
 		if (filled) {
-			ctx.fillStyle = NOTE_COLOR;
+			ctx.fillStyle = color;
 			ctx.fill();
 			ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
 			ctx.lineWidth = 1.5;
 			ctx.stroke();
 		} else {
-			ctx.fillStyle = 'rgba(255, 105, 180, 0.06)';
+			ctx.fillStyle = hexToRgba(color, 0.06);
 			ctx.fill();
-			ctx.strokeStyle = 'rgba(255, 105, 180, 0.3)';
+			ctx.strokeStyle = hexToRgba(color, 0.3);
 			ctx.lineWidth = 1.5;
 			ctx.stroke();
 		}
@@ -309,6 +351,38 @@
 			}
 		}
 
+		// ── Backing vocal segments (harmony line) ──
+		for (let i = 0; i < backingSegments.length; i++) {
+			const seg = backingSegments[i];
+			if (seg.endTime < visStart || seg.startTime > visEnd) continue;
+
+			let x1 = ((seg.startTime - adjTime) / WINDOW_SECONDS) * w + w * CURSOR_X_RATIO;
+			let x2 = ((seg.endTime - adjTime) / WINDOW_SECONDS) * w + w * CURSOR_X_RATIO;
+			const top = midiToRowTop(seg.midi, h);
+			const bBarH = barH * 0.65; // Slightly thinner than lead
+			const barY = top + (rowH - bBarH) / 2;
+
+			x2 -= NOTE_GAP_PX;
+			const bBarW = Math.max(bBarH, x2 - x1);
+
+			const isPast = seg.endTime <= adjTime;
+			const isCrossing = seg.startTime <= adjTime && seg.endTime > adjTime;
+
+			if (isPast) {
+				drawPill(ctx, x1, barY, bBarW, bBarH, false, backingColor);
+			} else if (isCrossing) {
+				drawPill(ctx, x1, barY, bBarW, bBarH, false, backingColor);
+				ctx.save();
+				ctx.beginPath();
+				ctx.rect(cursorX, 0, w, h);
+				ctx.clip();
+				drawPill(ctx, x1, barY, bBarW, bBarH, true, backingColor);
+				ctx.restore();
+			} else {
+				drawPill(ctx, x1, barY, bBarW, bBarH, true, backingColor);
+			}
+		}
+
 		// ── Update and draw particles ──
 		if (dt > 0) {
 			for (let i = particles.length - 1; i >= 0; i--) {
@@ -322,9 +396,9 @@
 		}
 		for (const p of particles) {
 			ctx.globalAlpha = Math.max(0, p.alpha);
-			ctx.shadowColor = NOTE_COLOR;
+			ctx.shadowColor = leadColor;
 			ctx.shadowBlur = 8;
-			ctx.fillStyle = p.size > 2.5 ? '#fff' : NOTE_COLOR;
+			ctx.fillStyle = p.size > 2.5 ? '#fff' : leadColor;
 			ctx.beginPath();
 			ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
 			ctx.fill();
@@ -384,6 +458,7 @@
 		currentTimeSec;
 		singerPitch;
 		referenceNotes;
+		backingNotes;
 		visible;
 		noiseGate;
 		offsetSec;
