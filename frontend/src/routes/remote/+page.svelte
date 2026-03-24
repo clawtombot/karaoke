@@ -37,6 +37,12 @@
 		emit('backing_noise_gate', backingNoiseGate);
 		saveSongConfig();
 	}
+	let pitchMergeGap = $state(0.08);
+	function setPitchMergeGap(val: number) {
+		pitchMergeGap = Math.round(val * 1000) / 1000;
+		emit('pitch_merge_gap', pitchMergeGap);
+		saveSongConfig();
+	}
 
 	// Persist offsets server-side per song
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -53,6 +59,7 @@
 					pitch_offset_sec: pitchOffsetSec || null,
 					noise_gate: pitchNoiseGate !== 0.05 ? pitchNoiseGate : null,
 					backing_noise_gate: backingNoiseGate !== 0.05 ? backingNoiseGate : null,
+					merge_gap: pitchMergeGap !== 0.08 ? pitchMergeGap : null,
 				}),
 			}).catch(() => {});
 		}, 500);
@@ -138,9 +145,11 @@
 						pitchOffsetSec = cfg.pitch_offset_sec ?? 0;
 						pitchNoiseGate = cfg.noise_gate ?? 0.05;
 						backingNoiseGate = cfg.backing_noise_gate ?? 0.05;
+						pitchMergeGap = cfg.merge_gap ?? 0.08;
 						emit('pitch_offset', pitchOffsetSec);
 						emit('pitch_noise_gate', pitchNoiseGate);
 						emit('backing_noise_gate', backingNoiseGate);
+						emit('pitch_merge_gap', pitchMergeGap);
 					})
 					.catch(() => {});
 			} else {
@@ -148,6 +157,7 @@
 				pitchOffsetSec = 0;
 				pitchNoiseGate = 0.05;
 				backingNoiseGate = 0.05;
+				pitchMergeGap = 0.08;
 			}
 			// Clear search state for new song
 			searchTitle = '';
@@ -355,6 +365,24 @@
 						<span class="dial-val" class:adjusted={backingNoiseGate !== 0.05}>{(backingNoiseGate * 100).toFixed(0)}%</span>
 					</div>
 					{#if backingNoiseGate !== 0.05}<button class="offset-btn reset" onclick={() => setBackingNoiseGate(0.05)}>5%</button>{/if}
+				</div>
+				<div class="sync-row">
+					<span class="sync-label">Merge</span>
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="scroll-dial"
+						onwheel={(e) => { e.preventDefault(); setPitchMergeGap(Math.max(0.01, Math.min(0.5, pitchMergeGap + (e.deltaY > 0 ? 0.01 : -0.01)))); }}
+						onpointerdown={(e) => {
+							const el = e.currentTarget; el.setPointerCapture(e.pointerId);
+							const startX = e.clientX; const startVal = pitchMergeGap;
+							const move = (me: PointerEvent) => setPitchMergeGap(Math.max(0.01, Math.min(0.5, startVal + (me.clientX - startX) * 0.002)));
+							const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); };
+							el.addEventListener('pointermove', move); el.addEventListener('pointerup', up);
+						}}
+					>
+						<div class="dial-ticks"></div>
+						<span class="dial-val" class:adjusted={pitchMergeGap !== 0.08}>{(pitchMergeGap * 1000).toFixed(0)}ms</span>
+					</div>
+					{#if pitchMergeGap !== 0.08}<button class="offset-btn reset" onclick={() => setPitchMergeGap(0.08)}>80ms</button>{/if}
 				</div>
 				<button class="search-lyrics-btn" onclick={() => { showLyricsSearch = !showLyricsSearch; if (!searchTitle) searchTitle = np.now_playing ?? ''; }}>
 					Search Different Lyrics

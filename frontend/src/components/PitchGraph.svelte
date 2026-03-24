@@ -39,8 +39,9 @@
 		offsetSec = 0,
 		noiseGate = 0.05,
 		backingNoiseGate = 0.05,
+		mergeGap = 0.08,
 		leadColor = '#ff69b4',
-		backingColor = '#4da6ff',
+		backingColor = '#7c6fff',
 	}: {
 		referenceNotes: PitchNote[];
 		backingNotes: PitchNote[];
@@ -51,6 +52,7 @@
 		offsetSec: number;
 		noiseGate: number;
 		backingNoiseGate: number;
+		mergeGap: number;
 		leadColor: string;
 		backingColor: string;
 	} = $props();
@@ -103,7 +105,7 @@
 		};
 		for (let i = 1; i < filtered.length; i++) {
 			const note = filtered[i];
-			if (note.midi === cur.midi && note.t - cur.endTime < 0.08) {
+			if (note.midi === cur.midi && note.t - cur.endTime < mergeGap) {
 				cur.endTime = note.t;
 			} else {
 				cur.endTime += 0.03;
@@ -129,7 +131,7 @@
 		};
 		for (let i = 1; i < filtered.length; i++) {
 			const note = filtered[i];
-			if (note.midi === cur.midi && note.t - cur.endTime < 0.08) {
+			if (note.midi === cur.midi && note.t - cur.endTime < mergeGap) {
 				cur.endTime = note.t;
 			} else {
 				cur.endTime += 0.03;
@@ -471,6 +473,7 @@
 		visible;
 		noiseGate;
 		backingNoiseGate;
+		mergeGap;
 		offsetSec;
 		render();
 	});
