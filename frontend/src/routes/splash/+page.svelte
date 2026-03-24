@@ -512,14 +512,19 @@
 	<!-- Stem indicators (right side, vertical) -->
 	{#if np.now_playing && np.stems_available}
 		<div class="splash-stems">
-			{#each [
-				{ name: 'vocals', icon: 'fa-solid fa-microphone', label: 'V' },
-				{ name: 'drums', icon: 'fa-solid fa-drum', label: 'D' },
-				{ name: 'bass', icon: 'ti ti-wave-sine', label: 'B' },
-				{ name: 'guitar', icon: 'fa-solid fa-guitar', label: 'G' },
-				{ name: 'piano', icon: 'ti ti-piano', label: 'P' },
-				{ name: 'other', icon: 'ti ti-music', label: 'O' },
-			] as stem}
+			{#each Object.keys(np.stem_urls ?? {}).map(name => {
+				const icons: Record<string, string> = {
+					lead_vocals: 'fa-solid fa-microphone',
+					backing_vocals: 'fa-solid fa-users',
+					vocals: 'fa-solid fa-microphone',
+					drums: 'fa-solid fa-drum',
+					bass: 'ti ti-wave-sine',
+					guitar: 'fa-solid fa-guitar',
+					piano: 'ti ti-piano',
+					other: 'ti ti-music',
+				};
+				return { name, icon: icons[name] ?? 'ti ti-music' };
+			}) as stem}
 				<button
 					class="stem-ind"
 					class:on={np.stem_mix[stem.name] ?? true}
