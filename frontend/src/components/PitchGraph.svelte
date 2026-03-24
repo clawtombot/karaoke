@@ -44,8 +44,8 @@
 
 	let canvas: HTMLCanvasElement;
 
-	// Pitch display range
-	const PADDING_SEMITONES = 3;
+	// Pitch display range — tight padding for zoomed-in view
+	const PADDING_SEMITONES = 1;
 	const FALLBACK_MIN = 48;
 	const FALLBACK_MAX = 84;
 
@@ -64,7 +64,7 @@
 
 	const WINDOW_SECONDS = 8;
 	const CURSOR_X_RATIO = 0.3;
-	const NOTE_GAP_PX = 3; // minimum gap between adjacent notes
+	const NOTE_GAP_PX = 8; // minimum gap between adjacent notes
 
 	// Colors
 	const GREEN = '#00ff88';
@@ -154,17 +154,43 @@
 
 	const NOTE_COLOR = '#ff69b4';
 
-	/** Draw a pill-shaped bar with knob — filled (solid pink) or outlined (pink stroke). */
+	/** Build a single merged path: knob circle + pill body as one clean outline. */
+	function pillPath(
+		ctx: CanvasRenderingContext2D,
+		x: number, y: number, w: number, h: number
+	) {
+		const r = h / 2;
+		const knobR = r * 1.3;
+		const cx = x + r; // knob center
+		const cy = y + r;
+
+		// Where pill edges meet the knob circle
+		const dx = Math.sqrt(knobR * knobR - r * r);
+		const topAngle = Math.atan2(-r, dx);
+		const botAngle = Math.atan2(r, dx);
+
+		// Ensure pill body extends past the knob
+		const bodyEnd = Math.max(cx + dx + r, x + w - r);
+
+		ctx.beginPath();
+		// Knob: arc around the left side (counterclockwise from top tangent to bottom tangent)
+		ctx.arc(cx, cy, knobR, topAngle, botAngle, true);
+		// Bottom edge to right end
+		ctx.lineTo(bodyEnd, y + h);
+		// Right semicircle (bottom → right → top)
+		ctx.arc(bodyEnd, cy, r, Math.PI / 2, -Math.PI / 2, true);
+		// Top edge back to knob tangent
+		ctx.lineTo(cx + dx, y);
+		ctx.closePath();
+	}
+
+	/** Draw a pill-shaped bar with knob — single merged path, no seam. */
 	function drawPill(
 		ctx: CanvasRenderingContext2D,
 		x: number, y: number, w: number, h: number,
 		filled: boolean
 	) {
-		const r = h / 2;
-		const knobR = r * 1.3;
-
-		ctx.beginPath();
-		ctx.roundRect(x, y, w, h, r);
+		pillPath(ctx, x, y, w, h);
 
 		if (filled) {
 			ctx.fillStyle = NOTE_COLOR;
@@ -172,26 +198,11 @@
 			ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
 			ctx.lineWidth = 1.5;
 			ctx.stroke();
-
-			// Knob at left edge
-			ctx.beginPath();
-			ctx.arc(x + r, y + r, knobR, 0, Math.PI * 2);
-			ctx.fillStyle = NOTE_COLOR;
-			ctx.fill();
-			ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-			ctx.lineWidth = 1.5;
-			ctx.stroke();
 		} else {
 			ctx.fillStyle = 'rgba(255, 105, 180, 0.06)';
 			ctx.fill();
 			ctx.strokeStyle = 'rgba(255, 105, 180, 0.3)';
 			ctx.lineWidth = 1.5;
-			ctx.stroke();
-
-			// Outlined knob
-			ctx.beginPath();
-			ctx.arc(x + r, y + r, knobR, 0, Math.PI * 2);
-			ctx.fill();
 			ctx.stroke();
 		}
 	}
