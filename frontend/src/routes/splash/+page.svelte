@@ -29,6 +29,7 @@
 	let showPitchGraph = $state(true);
 	let stemsReady = false; // Stems loaded but waiting for video to play
 	let stemsInitiated = false; // Stem loading started for current song
+	let stemGeneration = 0; // Increments on song change to cancel stale loads
 
 	function toggleStem(stem: string) {
 		emit('stem_toggle', stem);
@@ -86,11 +87,14 @@
 	function loadAndActivateStems() {
 		if (!np.stem_urls || stemsInitiated) return;
 		stemsInitiated = true;
+		const gen = stemGeneration; // Capture current generation
 		stemMixer.init();
 		const prefixedUrls = Object.fromEntries(
 			Object.entries(np.stem_urls).map(([k, v]) => [k, `${base}${v}`])
 		);
 		stemMixer.loadStems(prefixedUrls).then((ok) => {
+			// Ignore if a new song started while we were loading
+			if (gen !== stemGeneration) return;
 			if (ok) {
 				stemsReady = true;
 				activateStems();
@@ -116,6 +120,7 @@
 		currentVideoUrl = url;
 		stemsReady = false;
 		stemsInitiated = false;
+		stemGeneration++; // Invalidate any in-flight stem loads from previous song
 		const fullUrl = `${base}${url}`;
 
 		// Clean up previous song completely — stop stems BEFORE loading new video
