@@ -45,7 +45,10 @@ def parse_yrc(yrc_text: str) -> list[LyricsLine]:
         for word_match in WORD_PATTERN.finditer(word_section):
             word_start = float(word_match.group(1))
             word_duration = float(word_match.group(2))
-            word_text = word_match.group(3)
+            word_text = word_match.group(3).strip()
+
+            if not word_text:
+                continue
 
             words.append(
                 LyricsWord(

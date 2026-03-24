@@ -80,18 +80,17 @@
 				<div class="lyrics-text">
 					{#if line.words && line.words.length > 0}
 						{#each line.words as word, wIdx}
+							{@const needsSpace = wIdx < line.words.length - 1 && !/^[,.\-!?;:)）」』】]/.test(line.words[wIdx + 1]?.text ?? '')}
 							{#if line.romanized}
 								<ruby
 									class={wordClass(isCurrent, wIdx, wordIdx)}
 									style={wordStyle(isCurrent, wIdx, wordIdx, progress)}
-								>
-									{word.text}<rt></rt>
-								</ruby>
+								>{word.text}<rt></rt></ruby>{needsSpace ? ' ' : ''}
 							{:else}
 								<span
 									class={wordClass(isCurrent, wIdx, wordIdx)}
 									style={wordStyle(isCurrent, wIdx, wordIdx, progress)}
-								>{word.text}</span>
+								>{word.text}</span>{needsSpace ? ' ' : ''}
 							{/if}
 						{/each}
 					{:else}
@@ -137,10 +136,8 @@
 		font-size: 2.8rem;
 		font-weight: 700;
 		line-height: 1.3;
-		text-shadow:
-			0 0 30px rgba(0, 0, 0, 0.8),
-			0 2px 4px rgba(0, 0, 0, 0.9);
 		letter-spacing: 0.02em;
+		filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 20px rgba(0, 0, 0, 0.7));
 	}
 
 	.lyrics-line.preview .lyrics-text {
@@ -154,7 +151,7 @@
 		color: var(--color-dim);
 		margin-bottom: 0.25rem;
 		letter-spacing: 0.08em;
-		text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+		filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.8));
 	}
 
 	.lyrics-translation {
@@ -163,7 +160,7 @@
 		color: var(--color-dim);
 		margin-top: 0.25rem;
 		font-style: italic;
-		text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+		filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.8));
 	}
 
 	/* Ruby annotations for CJK */

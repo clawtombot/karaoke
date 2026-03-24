@@ -91,16 +91,17 @@
 					{#if line.words && line.words.length > 0}
 						<div class="line-text">
 							{#each line.words as word, wIdx}
+								{@const needsSpace = wIdx < line.words.length - 1 && !/^[,.\-!?;:)）」』】]/.test(line.words[wIdx + 1]?.text ?? '')}
 								{#if line.romanized}
 									<ruby
 										class={wordClass(state === 'current', wIdx, wordIdx)}
 										style={wordStyle(state === 'current', wIdx, wordIdx, progress)}
-									>{word.text}<rt>{line.romanized.split(/\s+/)[wIdx] ?? ''}</rt></ruby>{' '}
+									>{word.text}<rt>{line.romanized.split(/\s+/)[wIdx] ?? ''}</rt></ruby>{needsSpace ? ' ' : ''}
 								{:else}
 									<span
 										class={wordClass(state === 'current', wIdx, wordIdx)}
 										style={wordStyle(state === 'current', wIdx, wordIdx, progress)}
-									>{word.text}</span>{' '}
+									>{word.text}</span>{needsSpace ? ' ' : ''}
 								{/if}
 							{/each}
 						</div>
