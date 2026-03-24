@@ -103,26 +103,18 @@
 /* ── Karaoke-specific: word highlighting ──────────────────────────── */
 @layer components {
   .lyric-word {
-    color: var(--color-faint);
-    display: inline-block;
-    transition: none;
+    color: rgba(255, 255, 255, 0.7);
+    display: inline;
+    margin-right: 0.2em;
+    transition: color 0.15s;
   }
 
   .lyric-word.sung {
-    color: var(--color-text);
+    color: var(--color-teal);
   }
 
   .lyric-word.active {
-    background: linear-gradient(
-      90deg,
-      var(--color-teal) 0%,
-      var(--color-teal) var(--progress, 0%),
-      var(--color-faint) var(--progress, 0%),
-      var(--color-faint) 100%
-    );
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--color-teal);
   }
 
   /* Ruby/romaji annotations above kanji */
