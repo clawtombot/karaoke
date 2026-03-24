@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
-	 * SingStar-style pitch graph — pill-shaped note bars with progressive fill
-	 * and particle bursts when the playhead crosses each note.
+	 * Pitch graph — pill-shaped note bars that empty as the playhead crosses them,
+	 * with particle bursts on hit. White outline style, full width.
 	 */
 	import { onMount } from 'svelte';
 	import { centsDifference, type PitchReading } from '$lib/audio/pitch-detector';
@@ -64,16 +64,12 @@
 
 	const WINDOW_SECONDS = 8;
 	const CURSOR_X_RATIO = 0.3;
-	const LABEL_WIDTH = 32;
+	const NOTE_GAP_PX = 3; // minimum gap between adjacent notes
 
 	// Colors
-	const NOTE_COLOR = '#ff69b4';
 	const GREEN = '#00ff88';
 	const YELLOW = '#ffdd00';
 	const RED = '#ff4444';
-
-	const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-	const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
 
 	// Merge consecutive same-MIDI frames into note segments
 	let segments: NoteSegment[] = $derived.by(() => {
@@ -156,46 +152,28 @@
 		return closest;
 	}
 
-	/** Draw a pill-shaped bar with a knob at the leading (left) edge. */
+	/** Draw a pill-shaped bar — filled (solid white) or outlined (white stroke). */
 	function drawPill(
 		ctx: CanvasRenderingContext2D,
 		x: number, y: number, w: number, h: number,
 		filled: boolean
 	) {
 		const r = h / 2;
-		const knobR = r * 1.3;
+
+		ctx.beginPath();
+		ctx.roundRect(x, y, w, h, r);
 
 		if (filled) {
-			ctx.fillStyle = NOTE_COLOR;
-			ctx.beginPath();
-			ctx.roundRect(x, y, w, h, r);
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
 			ctx.fill();
-			ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-			ctx.lineWidth = 1.5;
-			ctx.stroke();
-
-			// Knob at left edge
-			ctx.beginPath();
-			ctx.arc(x + r, y + r, knobR, 0, Math.PI * 2);
-			ctx.fillStyle = NOTE_COLOR;
-			ctx.fill();
-			ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+			ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
 			ctx.lineWidth = 1.5;
 			ctx.stroke();
 		} else {
-			// Outlined pill with subtle fill
-			ctx.fillStyle = 'rgba(255, 105, 180, 0.06)';
-			ctx.strokeStyle = 'rgba(255, 105, 180, 0.3)';
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+			ctx.fill();
+			ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
 			ctx.lineWidth = 1.5;
-			ctx.beginPath();
-			ctx.roundRect(x, y, w, h, r);
-			ctx.fill();
-			ctx.stroke();
-
-			// Outlined knob
-			ctx.beginPath();
-			ctx.arc(x + r, y + r, knobR, 0, Math.PI * 2);
-			ctx.fill();
 			ctx.stroke();
 		}
 	}
@@ -232,9 +210,7 @@
 		const w = rect.width;
 		const h = rect.height;
 		const rowH = noteRowHeight(h);
-		const graphX = LABEL_WIDTH;
-		const graphW = w - LABEL_WIDTH;
-		const cursorX = graphX + graphW * CURSOR_X_RATIO;
+		const cursorX = w * CURSOR_X_RATIO;
 
 		ctx.clearRect(0, 0, w, h);
 
@@ -244,53 +220,43 @@
 			ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
 			ctx.lineWidth = 0.5;
 			ctx.beginPath();
-			ctx.moveTo(graphX, top + rowH);
+			ctx.moveTo(0, top + rowH);
 			ctx.lineTo(w, top + rowH);
 			ctx.stroke();
-		}
-
-		// ── Note labels ──
-		ctx.fillStyle = 'rgba(13, 6, 24, 0.5)';
-		ctx.fillRect(0, 0, LABEL_WIDTH, h);
-		for (let midi = minMidi; midi < maxMidi; midi++) {
-			const pc = midi % 12;
-			if (BLACK_KEYS.has(pc)) continue;
-			const top = midiToRowTop(midi, h);
-			ctx.fillStyle = pc === 0 ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.25)';
-			ctx.font = `${Math.max(8, Math.min(12, rowH * 0.65))}px monospace`;
-			ctx.textAlign = 'right';
-			ctx.textBaseline = 'middle';
-			ctx.fillText(`${NOTE_NAMES[pc]}${Math.floor(midi / 12) - 1}`, LABEL_WIDTH - 4, top + rowH / 2);
 		}
 
 		// ── Note segments (pill-shaped bars) ──
 		const visStart = currentTimeSec - WINDOW_SECONDS * CURSOR_X_RATIO;
 		const visEnd = currentTimeSec + WINDOW_SECONDS * (1 - CURSOR_X_RATIO);
-		const barH = Math.max(8, rowH * 0.7);
+		const barH = Math.max(10, rowH * 0.85);
 
 		for (let i = 0; i < segments.length; i++) {
 			const seg = segments[i];
 			if (seg.endTime < visStart || seg.startTime > visEnd) continue;
 
-			const x1 = graphX + ((seg.startTime - currentTimeSec) / WINDOW_SECONDS) * graphW + graphW * CURSOR_X_RATIO;
-			const x2 = graphX + ((seg.endTime - currentTimeSec) / WINDOW_SECONDS) * graphW + graphW * CURSOR_X_RATIO;
+			let x1 = ((seg.startTime - currentTimeSec) / WINDOW_SECONDS) * w + w * CURSOR_X_RATIO;
+			let x2 = ((seg.endTime - currentTimeSec) / WINDOW_SECONDS) * w + w * CURSOR_X_RATIO;
 			const top = midiToRowTop(seg.midi, h);
 			const barY = top + (rowH - barH) / 2;
+
+			// Ensure gap between adjacent notes
+			x2 -= NOTE_GAP_PX;
 			const barW = Math.max(barH, x2 - x1);
 
 			const isPast = seg.endTime <= currentTimeSec;
 			const isCrossing = seg.startTime <= currentTimeSec && seg.endTime > currentTimeSec;
 
+			// REVERSED: future = filled, past = outlined
 			if (isPast) {
-				drawPill(ctx, x1, barY, barW, barH, true);
-			} else if (isCrossing) {
-				// Progressive fill: outlined bar as base, clip-fill the past portion
 				drawPill(ctx, x1, barY, barW, barH, false);
+			} else if (isCrossing) {
+				// Progressive un-fill: filled bar as base, clip-outline the past portion
+				drawPill(ctx, x1, barY, barW, barH, true);
 				ctx.save();
 				ctx.beginPath();
 				ctx.rect(0, 0, cursorX, h);
 				ctx.clip();
-				drawPill(ctx, x1, barY, barW, barH, true);
+				drawPill(ctx, x1, barY, barW, barH, false);
 				ctx.restore();
 
 				// Spawn particles on first crossing
@@ -299,7 +265,7 @@
 					spawnParticles(cursorX, barY, barH);
 				}
 			} else {
-				drawPill(ctx, x1, barY, barW, barH, false);
+				drawPill(ctx, x1, barY, barW, barH, true);
 			}
 		}
 
@@ -309,16 +275,16 @@
 				const p = particles[i];
 				p.x += p.vx * dt;
 				p.y += p.vy * dt;
-				p.vy += 40 * dt; // gentle gravity
+				p.vy += 40 * dt;
 				p.alpha -= dt * 2.2;
 				if (p.alpha <= 0) particles.splice(i, 1);
 			}
 		}
 		for (const p of particles) {
 			ctx.globalAlpha = Math.max(0, p.alpha);
-			ctx.shadowColor = NOTE_COLOR;
+			ctx.shadowColor = '#ffffff';
 			ctx.shadowBlur = 8;
-			ctx.fillStyle = p.size > 2.5 ? '#fff' : NOTE_COLOR;
+			ctx.fillStyle = '#ffffff';
 			ctx.beginPath();
 			ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
 			ctx.fill();
@@ -349,7 +315,6 @@
 			const nearestRef = findNearestRef(currentTimeSec);
 			const dotColor = nearestRef ? getPitchColor(singerPitch.hz, nearestRef.hz) : '#ffffff';
 
-			// Outer glow
 			ctx.shadowColor = dotColor;
 			ctx.shadowBlur = 14;
 			ctx.fillStyle = dotColor;
@@ -357,14 +322,12 @@
 			ctx.arc(cursorX, singerY, 7, 0, Math.PI * 2);
 			ctx.fill();
 
-			// White core
 			ctx.fillStyle = '#ffffff';
 			ctx.beginPath();
 			ctx.arc(cursorX, singerY, 3, 0, Math.PI * 2);
 			ctx.fill();
 			ctx.shadowBlur = 0;
 
-			// Trail
 			ctx.globalAlpha = 0.25;
 			ctx.fillStyle = dotColor;
 			ctx.beginPath();
@@ -405,16 +368,14 @@
 <style>
 	.pitch-container {
 		position: absolute;
-		top: 2%;
-		left: 3%;
-		right: 3%;
+		top: 0;
+		left: 0;
+		right: 0;
 		height: 25%;
 		z-index: 4;
 		backdrop-filter: blur(12px);
 		-webkit-backdrop-filter: blur(12px);
-		background: rgba(13, 6, 24, 0.35);
-		border: 1px solid rgba(255, 105, 180, 0.15);
-		border-radius: 14px;
+		background: rgba(13, 6, 24, 0.3);
 		overflow: hidden;
 		pointer-events: none;
 	}
@@ -459,7 +420,7 @@
 		width: 40%;
 		height: 100%;
 		border-radius: 2px;
-		background: linear-gradient(90deg, transparent, rgba(255, 105, 180, 0.6), transparent);
+		background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
 		animation: shimmer 1.5s ease-in-out infinite;
 	}
 
