@@ -143,8 +143,8 @@ export function nudgeOffset(deltaMs: number) {
 	setOffset(offsetMs + deltaMs);
 }
 
-/** Search for alternate lyrics and replace current. */
-export async function searchLyrics(title: string, artist: string) {
+/** Search for alternate lyrics and replace current. Returns true on success. */
+export async function searchLyrics(title: string, artist: string): Promise<boolean> {
 	loading = true;
 	error = null;
 	try {
@@ -154,11 +154,14 @@ export async function searchLyrics(title: string, artist: string) {
 			lyrics = await res.json();
 			currentLineIndex = -1;
 			currentWordIndex = -1;
+			return true;
 		} else {
 			error = 'No lyrics found for that search';
+			return false;
 		}
 	} catch (e) {
 		error = `Search failed: ${e}`;
+		return false;
 	} finally {
 		loading = false;
 	}

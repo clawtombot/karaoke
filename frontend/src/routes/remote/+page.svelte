@@ -26,11 +26,14 @@
 		if (!searchTitle.trim()) return;
 		searchLoading = true;
 		searchError = '';
-		await searchLyrics(searchTitle.trim(), searchArtist.trim());
-		const err = getLyrics() === null;
-		searchError = err ? 'No lyrics found' : '';
+		const ok = await searchLyrics(searchTitle.trim(), searchArtist.trim());
 		searchLoading = false;
-		if (!err) showLyricsSearch = false;
+		if (ok) {
+			showLyricsSearch = false;
+			searchError = '';
+		} else {
+			searchError = 'No lyrics found — try different title/artist';
+		}
 	}
 	let transpose = $state(0);
 	let isSeeking = $state(false);
