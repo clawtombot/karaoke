@@ -61,6 +61,24 @@ Only support these two patterns.
 - Skip trivial getters/setters
 - Use real `EventSystem` and `PreferenceManager` instances (they're lightweight)
 
+## Deployment
+
+The SvelteKit frontend is static — pikaraoke serves files from `frontend/dist/` on each request.
+
+```bash
+# Frontend-only changes: just rebuild, no restart needed
+cd frontend && BASE_PATH=/karaoke npm run build
+# Then hard-refresh the browser
+
+# Backend (Python) changes: restart the pikaraoke process
+# NanoClaw manages it — restart via launchctl or re-expose the app
+
+# NanoClaw TypeScript changes: rebuild + restart NanoClaw
+cd /path/to/nanoclaw && npm run build && launchctl kickstart -k gui/$(id -u)/com.nanoclaw
+```
+
+`BASE_PATH=/karaoke` is required for frontend builds — it sets the SvelteKit base path to match the NanoClaw proxy prefix. NanoClaw auto-injects this for builds via `expose_app`, but manual builds need it explicitly.
+
 ## Code Quality
 
 ```bash

@@ -26,6 +26,7 @@
 	let isMaster = $state(false);
 	let showPitchGraph = $state(true);
 	let stemsReady = false; // Stems loaded but waiting for video to play
+	let stemsInitiated = false; // Stem loading started for current song
 
 	// Format time for display
 	function formatTime(seconds: number): string {
@@ -49,12 +50,37 @@
 	// Start stems when video actually begins playing
 	function activateStems() {
 		if (stemsReady && video && !video.paused) {
-			video.volume = 0; // Mute video, stems handle audio
-			video.muted = false; // Undo muted fallback (audio comes from stems)
 			stemMixer.play(video.currentTime);
 			stemMixer.applyMix(np.stem_mix, np.volume);
+
+			if (stemMixer.isReady()) {
+				// AudioContext is running — stems handle audio, mute video
+				video.volume = 0;
+				video.muted = false;
+			} else {
+				// AudioContext suspended (no user gesture yet) — keep video audible
+				// until user clicks, then swap to stems
+				video.muted = false;
+				video.volume = np.volume;
+			}
 			stemsReady = false;
 		}
+	}
+
+	// Load stems from current state and activate when ready
+	function loadAndActivateStems() {
+		if (!np.stem_urls || stemsInitiated) return;
+		stemsInitiated = true;
+		stemMixer.init();
+		const prefixedUrls = Object.fromEntries(
+			Object.entries(np.stem_urls).map(([k, v]) => [k, `${base}${v}`])
+		);
+		stemMixer.loadStems(prefixedUrls).then((ok) => {
+			if (ok) {
+				stemsReady = true;
+				activateStems();
+			}
+		});
 	}
 
 	// rAF loop for lyrics sync + pitch sync
@@ -74,6 +100,7 @@
 
 		currentVideoUrl = url;
 		stemsReady = false;
+		stemsInitiated = false;
 		const fullUrl = `${base}${url}`;
 
 		// Clean up previous
@@ -82,10 +109,13 @@
 			hlsInstance = null;
 		}
 
+		// Resume at current server position if mid-song (refresh or new splash)
+		const resumePos = np.now_playing_position ?? 0;
+
 		if (url.endsWith('.m3u8')) {
 			if (Hls.isSupported()) {
 				const hls = new Hls({
-					startPosition: 0,
+					startPosition: resumePos,
 					maxBufferLength: 30,
 					maxMaxBufferLength: 60,
 				});
@@ -133,6 +163,9 @@
 			video.src = fullUrl;
 			video.load();
 			video.volume = np.volume;
+			if (resumePos > 0) {
+				video.addEventListener('loadedmetadata', () => { video.currentTime = resumePos; }, { once: true });
+			}
 			tryPlay();
 		}
 
@@ -146,20 +179,12 @@
 			.then((data) => (pitchData = data))
 			.catch(() => (pitchData = []));
 
-		// Setup stems if available (prefix URLs with base path for proxy)
+		// Load stems if already available (cached from previous play)
 		if (np.stems_available && np.stem_urls) {
-			stemMixer.init();
-			const prefixedUrls = Object.fromEntries(
-				Object.entries(np.stem_urls).map(([k, v]) => [k, `${base}${v}`])
-			);
-			stemMixer.loadStems(prefixedUrls).then((ok) => {
-				if (ok) {
-					stemsReady = true;
-					activateStems(); // Try immediately; also triggered by onVideoPlay
-				}
-			});
+			loadAndActivateStems();
 		}
 	});
+
 
 	// Handle song ending
 	$effect(() => {
@@ -196,6 +221,18 @@
 			on('splash_role', (role: any) => {
 				isMaster = role === 'master';
 			}),
+			on('playback_position', (position: any) => {
+				// Slave sync: master broadcasts position, slaves align to it
+				if (!isMaster && video && !video.paused) {
+					const drift = Math.abs(video.currentTime - position);
+					if (drift > 0.5) {
+						video.currentTime = position;
+						if (stemMixer.isActive()) {
+							stemMixer.syncToVideo(position);
+						}
+					}
+				}
+			}),
 			on('pause', () => {
 				video?.pause();
 				stemMixer.pause();
@@ -214,6 +251,14 @@
 					video.play();
 				}
 				stemMixer.play(0);
+			}),
+			on('seek', (pos: any) => {
+				if (video) {
+					video.currentTime = pos;
+					if (stemMixer.isActive()) {
+						stemMixer.syncToVideo(pos);
+					}
+				}
 			}),
 			on('volume', (val: any) => {
 				let newVol: number;
@@ -251,6 +296,23 @@
 			}
 		}, 500);
 
+		// Poll for stem availability while DNN is splitting
+		const stemPollInterval = setInterval(() => {
+			if (
+				np.vocal_splitter_enabled &&
+				!np.stems_available &&
+				np.now_playing_url &&
+				!np.stem_progress?.error
+			) {
+				fetchNowPlaying();
+			}
+			// Hot-swap: stems became available mid-playback
+			if (np.stems_available && np.stem_urls && currentVideoUrl && !stemsInitiated) {
+				console.log('[splash] stems now available mid-playback, hot-swapping');
+				loadAndActivateStems();
+			}
+		}, 5000);
+
 		// Start pitch detection
 		startPitch((reading) => {
 			singerPitch = reading;
@@ -262,6 +324,7 @@
 		return () => {
 			clearInterval(posInterval);
 			clearInterval(stemInterval);
+			clearInterval(stemPollInterval);
 		};
 	});
 
@@ -285,13 +348,53 @@
 		// Stems may have loaded while video was buffering — activate now
 		activateStems();
 	}
+
+	/** Resume AudioContext on first user gesture and swap audio to stems. */
+	function onUserGesture() {
+		// Unmute video if it was muted by autoplay fallback
+		if (video && video.muted) {
+			video.muted = false;
+			video.volume = np.volume;
+		}
+
+		// Resume suspended AudioContext and swap to stem audio
+		if (!stemMixer.isReady() && stemMixer.isActive()) {
+			// Context was suspended — resume it, then mute video
+			const tryResume = () => {
+				if (stemMixer.isReady()) {
+					if (video) {
+						video.volume = 0;
+						stemMixer.syncToVideo(video.currentTime);
+					}
+				}
+			};
+			// init() tries resume, but call it again with the user gesture context
+			stemMixer.init();
+			// Give AudioContext a moment to transition to 'running'
+			setTimeout(tryResume, 100);
+		}
+	}
+
+	async function seekFromClick(e: MouseEvent) {
+		if (!np.now_playing_duration || !video) return;
+		const bar = e.currentTarget as HTMLElement;
+		const rect = bar.getBoundingClientRect();
+		const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+		const pos = ratio * np.now_playing_duration;
+		video.currentTime = pos;
+		if (stemMixer.isActive()) {
+			stemMixer.syncToVideo(pos);
+		}
+		await fetch(`${base}/seek/${pos}`);
+	}
 </script>
 
 <svelte:head>
 	<title>HomeKaraoke — TV</title>
 </svelte:head>
 
-<div class="splash-root">
+<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<div class="splash-root" onclick={onUserGesture}>
 	<!-- Background video (ambient, behind everything) -->
 	<div class="bg-layer">
 		{#if !np.now_playing}
@@ -313,8 +416,8 @@
 			class="main-video"
 			playsinline
 			disableremoteplayback
-			on:ended={onVideoEnded}
-			on:play={onVideoPlay}
+			onended={onVideoEnded}
+			onplay={onVideoPlay}
 		></video>
 	</div>
 
@@ -341,7 +444,8 @@
 				{/if}
 			</div>
 			<div class="np-progress">
-				<div class="np-progress-bar">
+				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+				<div class="np-progress-bar seekable" onclick={(e) => seekFromClick(e)}>
 					<div
 						class="np-progress-fill"
 						style="width: {np.now_playing_duration ? (currentTimeSec / np.now_playing_duration) * 100 : 0}%"
@@ -473,6 +577,13 @@
 		background: linear-gradient(90deg, var(--color-purple), var(--color-teal));
 		border-radius: 2px;
 		transition: width 0.3s linear;
+	}
+	.np-progress-bar.seekable {
+		cursor: pointer;
+		height: 8px;
+	}
+	.np-progress-bar.seekable:hover {
+		height: 10px;
 	}
 	.np-time {
 		font-family: var(--font-mono);

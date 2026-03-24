@@ -222,7 +222,7 @@ fastapi_app.add_middleware(
 # Set BASE_PATH=/karaoke when building the frontend and running the server.
 # Leave empty to run at root (classic pikaraoke behaviour).
 # ---------------------------------------------------------------------------
-_BASE_PATH = os.environ.get("BASE_PATH", "/karaoke").rstrip("/")
+_BASE_PATH = os.environ.get("BASE_PATH", "").rstrip("/")
 
 # ---------------------------------------------------------------------------
 # Register API routers

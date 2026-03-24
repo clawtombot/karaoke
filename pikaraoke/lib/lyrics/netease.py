@@ -1,8 +1,7 @@
 """NetEase Cloud Music API client for lyrics retrieval.
 
-Uses the public API for search and lyric fetching. YRC (word-level timing)
-requires the encrypted EAPI which is not yet implemented -- for now we parse
-the standard LRC field and translation/romanization metadata.
+Uses the v1 API endpoint which returns YRC word-level timing when available,
+with LRC as fallback. Translation and romanization metadata are merged in.
 """
 
 import logging
@@ -11,6 +10,7 @@ import httpx
 
 from pikaraoke.lib.lyrics.lrc_parser import parse_lrc
 from pikaraoke.lib.lyrics.models import LyricsLine, SongLyrics
+from pikaraoke.lib.lyrics.yrc_parser import parse_yrc
 
 NETEASE_BASE = "https://music.163.com/api"
 REQUEST_TIMEOUT = 10.0
@@ -51,8 +51,8 @@ async def search_song(query: str) -> int | None:
 async def get_lyrics(song_id: int) -> SongLyrics | None:
     """Fetch lyrics by NetEase song ID.
 
-    Returns LRC-based lyrics with optional translation and romanization.
-    YRC word-level timing requires EAPI encryption (not yet implemented).
+    Uses the v1 endpoint which returns YRC word-level timing when available,
+    falling back to standard LRC.
 
     Args:
         song_id: NetEase song ID.
@@ -63,8 +63,8 @@ async def get_lyrics(song_id: int) -> SongLyrics | None:
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
         try:
             resp = await client.get(
-                f"{NETEASE_BASE}/song/lyric",
-                params={"id": song_id, "lv": -1, "tv": -1, "rv": -1},
+                f"{NETEASE_BASE}/song/lyric/v1",
+                params={"id": song_id, "lv": -1, "tv": -1, "rv": -1, "yv": 1},
                 headers={"User-Agent": USER_AGENT, "Referer": "https://music.163.com/"},
             )
             if resp.status_code != 200:
@@ -78,22 +78,36 @@ async def get_lyrics(song_id: int) -> SongLyrics | None:
 
 
 def _parse_lyric_response(data: dict) -> SongLyrics | None:
-    """Parse the NetEase /song/lyric response."""
-    # Main lyrics (LRC format)
-    lrc_data = data.get("lrc", {})
-    lrc_text = lrc_data.get("lyric", "")
-    if not lrc_text:
-        return None
+    """Parse the NetEase /song/lyric/v1 response.
 
-    lines = parse_lrc(lrc_text)
+    Prefers YRC (word-level timing) when available, falls back to LRC.
+    """
+    # Try YRC first (word-level timing)
+    yrc_data = data.get("yrc", {})
+    yrc_text = yrc_data.get("lyric", "") if isinstance(yrc_data, dict) else ""
+
+    if yrc_text:
+        lines = parse_yrc(yrc_text)
+        has_word_timing = bool(lines)
+    else:
+        lines = None
+        has_word_timing = False
+
+    # Fall back to LRC
+    if not lines:
+        lrc_data = data.get("lrc", {})
+        lrc_text = lrc_data.get("lyric", "")
+        if not lrc_text:
+            return None
+        lines = parse_lrc(lrc_text)
+        has_word_timing = any(line.words for line in lines)
+
     if not lines:
         return None
 
-    has_word_timing = any(line.words for line in lines)
-
-    # Translation lyrics (Chinese songs often have English translation)
+    # Translation lyrics
     tlyric_data = data.get("tlyric", {})
-    tlyric_text = tlyric_data.get("lyric", "")
+    tlyric_text = tlyric_data.get("lyric", "") if isinstance(tlyric_data, dict) else ""
     has_translation = False
     if tlyric_text:
         translation_lines = parse_lrc(tlyric_text)
@@ -101,14 +115,15 @@ def _parse_lyric_response(data: dict) -> SongLyrics | None:
 
     # Romanization (pinyin/romaji)
     romalrc_data = data.get("romalrc", {})
-    romalrc_text = romalrc_data.get("lyric", "")
+    romalrc_text = romalrc_data.get("lyric", "") if isinstance(romalrc_data, dict) else ""
     has_romanization = False
     if romalrc_text:
         roma_lines = parse_lrc(romalrc_text)
         has_romanization = _merge_romanization(lines, roma_lines)
 
+    source = "netease-yrc" if yrc_text and has_word_timing else "netease"
     return SongLyrics(
-        source="netease",
+        source=source,
         language="",
         lines=lines,
         has_word_timing=has_word_timing,

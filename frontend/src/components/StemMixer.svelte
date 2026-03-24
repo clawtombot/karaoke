@@ -80,11 +80,17 @@
 		{:else if np.now_playing}
 			<div class="stem-pending">
 				{#if np.stem_progress?.error}
-					Stem splitting failed
-				{:else if np.stem_progress}
-					Splitting... {np.stem_progress.ready}/{np.stem_progress.total}
+					<i class="ti ti-alert-triangle" style="color: var(--color-pink)"></i>
+					<span>Split failed</span>
 				{:else}
-					Processing stems...
+					<div class="split-progress">
+						<div class="split-bar">
+							{#each Array(np.stem_progress?.total ?? 6) as _, i}
+								<div class="split-seg" class:done={i < (np.stem_progress?.ready ?? 0)}></div>
+							{/each}
+						</div>
+						<span class="split-label">Splitting stems{np.stem_progress ? ` ${np.stem_progress.ready}/${np.stem_progress.total}` : ''}</span>
+					</div>
 				{/if}
 			</div>
 		{/if}
@@ -166,9 +172,39 @@
 	}
 
 	.stem-pending {
+		display: flex;
+		align-items: center;
+		gap: 6px;
 		font-size: 0.75rem;
 		color: var(--color-faint);
 		font-family: var(--font-mono);
+		width: 100%;
+	}
+	.split-progress {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		width: 100%;
+	}
+	.split-bar {
+		display: flex;
+		gap: 3px;
+		height: 4px;
+	}
+	.split-seg {
+		flex: 1;
+		border-radius: 2px;
+		background: rgba(255, 255, 255, 0.08);
+		transition: background 0.4s, box-shadow 0.4s;
+	}
+	.split-seg.done {
+		background: var(--color-teal);
+		box-shadow: 0 0 6px rgba(0, 210, 255, 0.4);
+	}
+	.split-label {
+		font-size: 0.6rem;
+		color: var(--color-faint);
+		text-align: center;
 	}
 
 	/* Compact mode for splash overlay */

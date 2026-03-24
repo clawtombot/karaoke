@@ -24,6 +24,11 @@ export function isActive(): boolean {
 	return playing && channels.size > 0;
 }
 
+/** Whether the AudioContext is usable (not suspended by autoplay policy). */
+export function isReady(): boolean {
+	return ctx?.state === 'running';
+}
+
 /** Initialize the audio context and gain nodes. */
 export function init() {
 	if (ctx) return;
@@ -35,6 +40,11 @@ export function init() {
 		const gain = ctx.createGain();
 		gain.connect(masterGain);
 		channels.set(name, { source: null, gain, buffer: null, loaded: false });
+	}
+
+	// Try to resume immediately (works if user already interacted)
+	if (ctx.state === 'suspended') {
+		ctx.resume().catch(() => {});
 	}
 }
 

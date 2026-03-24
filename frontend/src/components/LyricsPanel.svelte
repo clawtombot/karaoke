@@ -139,16 +139,16 @@
 
 	/* Padding so the first/last lines can be centered */
 	.lines-list {
-		padding-top: 40%;
+		padding-top: 30%;
 		padding-bottom: 0;
 	}
 
 	.scroll-spacer {
-		height: 40%;
+		height: 30%;
 	}
 
 	.lyrics-line {
-		padding: 10px 16px;
+		padding: 6px 16px;
 		text-align: center;
 		transition: opacity 0.3s ease, transform 0.3s ease;
 		cursor: default;

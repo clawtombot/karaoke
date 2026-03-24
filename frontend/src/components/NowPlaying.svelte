@@ -4,6 +4,8 @@
 	 */
 	import { getState } from '$lib/stores/playback.svelte';
 
+	let { onSeek }: { onSeek?: (position: number) => void } = $props();
+
 	const np = $derived(getState());
 
 	function formatTime(seconds: number | null): string {
@@ -18,6 +20,14 @@
 			? Math.min(100, (np.now_playing_position / np.now_playing_duration) * 100)
 			: 0
 	);
+
+	function handleSeekClick(e: MouseEvent) {
+		if (!onSeek || !np.now_playing_duration) return;
+		const track = e.currentTarget as HTMLElement;
+		const rect = track.getBoundingClientRect();
+		const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+		onSeek(ratio * np.now_playing_duration);
+	}
 </script>
 
 <div class="glass np-card">
@@ -51,7 +61,8 @@
 
 	{#if np.now_playing}
 		<div class="np-progress-wrap">
-			<div class="np-progress-track">
+			<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+			<div class="np-progress-track" class:seekable={!!onSeek} onclick={handleSeekClick}>
 				<div class="np-progress-fill" style="width: {progressPct}%"></div>
 			</div>
 			<div class="np-time">
@@ -147,10 +158,16 @@
 	}
 
 	.np-progress-track {
-		height: 3px;
+		height: 6px;
 		background: rgba(255, 255, 255, 0.1);
-		border-radius: 2px;
+		border-radius: 3px;
 		overflow: hidden;
+	}
+	.np-progress-track.seekable {
+		cursor: pointer;
+	}
+	.np-progress-track.seekable:hover {
+		height: 10px;
 	}
 
 	.np-progress-fill {

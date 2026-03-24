@@ -71,3 +71,12 @@ async def vol_down():
     await broadcast_event("volume", "down")
     k.vol_down()
     return {"ok": True}
+
+
+@router.get("/seek/{position}")
+async def seek(position: float):
+    """Seek to a position in seconds."""
+    k = get_karaoke()
+    await broadcast_event("seek", position)
+    k.playback_controller.now_playing_position = position
+    return {"ok": True}
