@@ -52,17 +52,21 @@
 		const url = np.now_playing_url;
 		if (url && url !== lastUrl) {
 			lastUrl = url;
+			initialSynced = false; // Re-sync position for new song
 			const uid = url.split('/').pop()?.replace(/\.(m3u8|mp4)$/, '') ?? '';
 			loadLyrics(uid);
 		} else if (!url && lastUrl) {
 			lastUrl = null;
+			initialSynced = false;
 			clearLyrics();
 		}
 	});
 
-	// Sync from server position (fallback for initial load)
+	// Sync from server position on initial load only
+	let initialSynced = false;
 	$effect(() => {
-		if (!isSeeking && np.now_playing_position) {
+		if (!initialSynced && np.now_playing_position) {
+			initialSynced = true;
 			syncFromServer(np.now_playing_position);
 		}
 	});
