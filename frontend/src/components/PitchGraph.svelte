@@ -34,12 +34,14 @@
 		currentTimeSec = 0,
 		visible = true,
 		loading = false,
+		offsetSec = 0,
 	}: {
 		referenceNotes: PitchNote[];
 		singerPitch: PitchReading | null;
 		currentTimeSec: number;
 		visible: boolean;
 		loading: boolean;
+		offsetSec: number;
 	} = $props();
 
 	let canvas: HTMLCanvasElement;
@@ -219,10 +221,13 @@
 			hitSegments = new Set();
 		}
 
+		// Apply pitch offset (positive = notes appear earlier)
+		const adjTime = currentTimeSec + offsetSec;
+
 		// dt for particle physics
-		const rawDt = currentTimeSec - lastTime;
+		const rawDt = adjTime - lastTime;
 		const dt = rawDt > 0 && rawDt < 0.1 ? rawDt : 0;
-		lastTime = currentTimeSec;
+		lastTime = adjTime;
 
 		// Reset on backward seek
 		if (rawDt < -0.5) {
@@ -255,16 +260,16 @@
 		}
 
 		// ── Note segments (pill-shaped bars) ──
-		const visStart = currentTimeSec - WINDOW_SECONDS * CURSOR_X_RATIO;
-		const visEnd = currentTimeSec + WINDOW_SECONDS * (1 - CURSOR_X_RATIO);
+		const visStart = adjTime - WINDOW_SECONDS * CURSOR_X_RATIO;
+		const visEnd = adjTime + WINDOW_SECONDS * (1 - CURSOR_X_RATIO);
 		const barH = Math.max(10, rowH * 0.85);
 
 		for (let i = 0; i < segments.length; i++) {
 			const seg = segments[i];
 			if (seg.endTime < visStart || seg.startTime > visEnd) continue;
 
-			let x1 = ((seg.startTime - currentTimeSec) / WINDOW_SECONDS) * w + w * CURSOR_X_RATIO;
-			let x2 = ((seg.endTime - currentTimeSec) / WINDOW_SECONDS) * w + w * CURSOR_X_RATIO;
+			let x1 = ((seg.startTime - adjTime) / WINDOW_SECONDS) * w + w * CURSOR_X_RATIO;
+			let x2 = ((seg.endTime - adjTime) / WINDOW_SECONDS) * w + w * CURSOR_X_RATIO;
 			const top = midiToRowTop(seg.midi, h);
 			const barY = top + (rowH - barH) / 2;
 
@@ -272,8 +277,8 @@
 			x2 -= NOTE_GAP_PX;
 			const barW = Math.max(barH, x2 - x1);
 
-			const isPast = seg.endTime <= currentTimeSec;
-			const isCrossing = seg.startTime <= currentTimeSec && seg.endTime > currentTimeSec;
+			const isPast = seg.endTime <= adjTime;
+			const isCrossing = seg.startTime <= adjTime && seg.endTime > adjTime;
 
 			// REVERSED: future = filled, past = outlined
 			if (isPast) {
@@ -341,7 +346,7 @@
 		if (singerPitch && singerPitch.hz > 0) {
 			const singerMidi = 69 + 12 * Math.log2(singerPitch.hz / 440);
 			const singerY = midiToY(singerMidi, h);
-			const nearestRef = findNearestRef(currentTimeSec);
+			const nearestRef = findNearestRef(adjTime);
 			const dotColor = nearestRef ? getPitchColor(singerPitch.hz, nearestRef.hz) : '#ffffff';
 
 			ctx.shadowColor = dotColor;

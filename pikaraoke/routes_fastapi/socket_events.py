@@ -41,6 +41,16 @@ def setup_socket_events(sio) -> None:
             await sio.emit("splash_role", "slave", room=sid)
             logging.info(f"Slave splash assigned: {sid}")
 
+    @sio.on("lyrics_offset")
+    async def handle_lyrics_offset(sid, offset_ms: int) -> None:
+        """Relay lyrics timing offset to all clients (especially splash)."""
+        await sio.emit("lyrics_offset", offset_ms, skip_sid=sid)
+
+    @sio.on("pitch_offset")
+    async def handle_pitch_offset(sid, offset_sec: float) -> None:
+        """Relay pitch graph timing offset to all clients."""
+        await sio.emit("pitch_offset", offset_sec, skip_sid=sid)
+
     @sio.on("stem_toggle")
     async def handle_stem_toggle(sid, stem: str) -> None:
         k = get_karaoke()

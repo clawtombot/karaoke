@@ -6,7 +6,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { base } from '$app/paths';
 	import { getState, fetchNowPlaying, type NowPlaying } from '$lib/stores/playback.svelte';
-	import { loadLyrics, clearLyrics, reloadLyrics } from '$lib/stores/lyrics.svelte';
+	import { loadLyrics, clearLyrics, reloadLyrics, applyRemoteOffset } from '$lib/stores/lyrics.svelte';
 	import { emit, on } from '$lib/stores/socket.svelte';
 	import { start as startPitch, stop as stopPitch, type PitchReading } from '$lib/audio/pitch-detector';
 	import * as stemMixer from '$lib/audio/stem-mixer';
@@ -27,6 +27,7 @@
 	let currentVideoUrl: string | null = null;
 	let isMaster = $state(false);
 	let showPitchGraph = $state(true);
+	let pitchOffsetSec = $state(0);
 	let stemsReady = false; // Stems loaded but waiting for video to play
 	let stemsInitiated = false; // Stem loading started for current song
 	let stemGeneration = 0; // Increments on song change to cancel stale loads
@@ -335,6 +336,12 @@
 				console.log('[splash] lyrics reload requested');
 				reloadLyrics();
 			}),
+			on('lyrics_offset', (ms: any) => {
+				applyRemoteOffset(Number(ms));
+			}),
+			on('pitch_offset', (sec: any) => {
+				pitchOffsetSec = Number(sec);
+			}),
 		];
 
 		// Start rAF loop
@@ -491,6 +498,7 @@
 		{currentTimeSec}
 		visible={showPitchGraph && !!np.now_playing}
 		loading={pitchLoading && pitchData.length === 0}
+		offsetSec={pitchOffsetSec}
 	/>
 
 	<!-- Lyrics overlay (bottom) -->

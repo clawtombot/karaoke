@@ -2,6 +2,7 @@
  * Lyrics store — manages word-timed lyrics data and current highlight position.
  */
 import { base } from '$app/paths';
+import { emit } from '$lib/stores/socket.svelte';
 
 export interface LyricsWord {
 	start: number; // ms
@@ -135,9 +136,15 @@ export function clearLyrics() {
 }
 
 /** Adjust lyrics timing offset (ms). Positive = lyrics appear earlier. */
-export function setOffset(ms: number) {
+export function setOffset(ms: number, broadcast = true) {
 	offsetMs = ms;
 	saveOffset(currentStreamUid, ms);
+	if (broadcast) emit('lyrics_offset', ms);
+}
+
+/** Apply offset from remote socket event (no re-broadcast). */
+export function applyRemoteOffset(ms: number) {
+	offsetMs = ms;
 }
 export function nudgeOffset(deltaMs: number) {
 	setOffset(offsetMs + deltaMs);

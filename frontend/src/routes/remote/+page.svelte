@@ -4,7 +4,7 @@
 	import { base } from '$app/paths';
 	import { getState, fetchNowPlaying } from '$lib/stores/playback.svelte';
 	import { loadLyrics, clearLyrics, getLyrics, nudgeOffset, getOffset, setOffset, searchCandidates, selectCandidate, type LyricsCandidate } from '$lib/stores/lyrics.svelte';
-	import { on } from '$lib/stores/socket.svelte';
+	import { on, emit } from '$lib/stores/socket.svelte';
 	import LyricsPanel from '$components/LyricsPanel.svelte';
 	import StemMixer from '$components/StemMixer.svelte';
 	import TabBar from '$components/TabBar.svelte';
@@ -14,6 +14,13 @@
 	const lyricsOffset = $derived(getOffset());
 	let currentTimeMs = $state(0);
 	let volume = $state(0.85);
+
+	// Pitch graph sync
+	let pitchOffsetSec = $state(0);
+	function setPitchOffset(sec: number) {
+		pitchOffsetSec = sec;
+		emit('pitch_offset', sec);
+	}
 
 	// Lyrics search
 	let showLyricsSearch = $state(false);
@@ -216,16 +223,38 @@
 		<!-- Lyrics controls -->
 		{#if np.now_playing}
 			<div class="lyrics-controls">
+				<div class="offset-label">Lyrics Sync</div>
 				<div class="offset-row">
-					<button class="offset-btn" onclick={() => nudgeOffset(-200)}>-0.2s</button>
-					<button class="offset-btn" onclick={() => nudgeOffset(-500)}>-0.5s</button>
+					<button class="offset-btn" onclick={() => nudgeOffset(-100)}>-</button>
+					<input
+						type="range" min="-5000" max="5000" step="50"
+						value={lyricsOffset}
+						oninput={(e) => setOffset(Number(e.currentTarget.value))}
+						class="offset-slider"
+					/>
+					<button class="offset-btn" onclick={() => nudgeOffset(100)}>+</button>
 					<span class="offset-val" class:adjusted={lyricsOffset !== 0}>
 						{lyricsOffset >= 0 ? '+' : ''}{(lyricsOffset / 1000).toFixed(1)}s
 					</span>
-					<button class="offset-btn" onclick={() => nudgeOffset(500)}>+0.5s</button>
-					<button class="offset-btn" onclick={() => nudgeOffset(200)}>+0.2s</button>
 					{#if lyricsOffset !== 0}
-						<button class="offset-btn reset" onclick={() => setOffset(0)}>Reset</button>
+						<button class="offset-btn reset" onclick={() => setOffset(0)}>0</button>
+					{/if}
+				</div>
+				<div class="offset-label">Pitch Sync</div>
+				<div class="offset-row">
+					<button class="offset-btn" onclick={() => setPitchOffset(pitchOffsetSec - 0.1)}>-</button>
+					<input
+						type="range" min="-5" max="5" step="0.05"
+						value={pitchOffsetSec}
+						oninput={(e) => setPitchOffset(Number(e.currentTarget.value))}
+						class="offset-slider"
+					/>
+					<button class="offset-btn" onclick={() => setPitchOffset(pitchOffsetSec + 0.1)}>+</button>
+					<span class="offset-val" class:adjusted={pitchOffsetSec !== 0}>
+						{pitchOffsetSec >= 0 ? '+' : ''}{pitchOffsetSec.toFixed(1)}s
+					</span>
+					{#if pitchOffsetSec !== 0}
+						<button class="offset-btn reset" onclick={() => setPitchOffset(0)}>0</button>
 					{/if}
 				</div>
 				<button class="search-lyrics-btn" onclick={() => { showLyricsSearch = !showLyricsSearch; searchTitle = np.now_playing ?? ''; searchArtist = ''; }}>
@@ -463,10 +492,36 @@
 	}
 	.offset-btn:active { background: rgba(255, 255, 255, 0.1); }
 	.offset-btn.reset { color: var(--color-pink); border-color: rgba(236, 72, 153, 0.2); }
+	.offset-label {
+		font-size: 0.6rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-faint);
+	}
+	.offset-slider {
+		flex: 1;
+		height: 4px;
+		appearance: none;
+		-webkit-appearance: none;
+		background: rgba(255, 255, 255, 0.1);
+		border-radius: 2px;
+		outline: none;
+		cursor: pointer;
+	}
+	.offset-slider::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		width: 14px;
+		height: 14px;
+		border-radius: 50%;
+		background: var(--color-teal, #00d2ff);
+		border: none;
+		cursor: pointer;
+	}
 	.offset-val {
-		min-width: 44px;
+		min-width: 38px;
 		text-align: center;
-		font-size: 0.65rem;
+		font-size: 0.6rem;
 		font-family: var(--font-mono);
 		color: var(--color-faint);
 	}
