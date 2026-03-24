@@ -33,6 +33,7 @@
 	let pitchNoiseGate = $state(0.05);
 	let backingNoiseGate = $state(0.05);
 	let pitchMergeGap = $state(0.08);
+	let pitchMergeSemitones = $state(0);
 	let stemsReady = false; // Stems loaded but waiting for video to play
 	let stemsInitiated = false; // Stem loading started for current song
 	let stemGeneration = 0; // Increments on song change to cancel stale loads
@@ -376,6 +377,9 @@
 			on('pitch_merge_gap', (gap: any) => {
 				pitchMergeGap = Number(gap);
 			}),
+			on('pitch_merge_semitones', (st: any) => {
+				pitchMergeSemitones = Number(st);
+			}),
 		];
 
 		// Start rAF loop
@@ -537,6 +541,7 @@
 		noiseGate={pitchNoiseGate}
 		backingNoiseGate={backingNoiseGate}
 		mergeGap={pitchMergeGap}
+		pitchMerge={pitchMergeSemitones}
 		leadColor={'#ff69b4'}
 		backingColor={'#7c6fff'}
 	/>

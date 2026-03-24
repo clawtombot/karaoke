@@ -40,6 +40,7 @@
 		noiseGate = 0.05,
 		backingNoiseGate = 0.05,
 		mergeGap = 0.08,
+		pitchMerge = 0,
 		leadColor = '#ff69b4',
 		backingColor = '#7c6fff',
 	}: {
@@ -53,6 +54,7 @@
 		noiseGate: number;
 		backingNoiseGate: number;
 		mergeGap: number;
+		pitchMerge: number;
 		leadColor: string;
 		backingColor: string;
 	} = $props();
@@ -105,7 +107,7 @@
 		};
 		for (let i = 1; i < filtered.length; i++) {
 			const note = filtered[i];
-			if (note.midi === cur.midi && note.t - cur.endTime < mergeGap) {
+			if (Math.abs(note.midi - cur.midi) <= pitchMerge && note.t - cur.endTime < mergeGap) {
 				cur.endTime = note.t;
 			} else {
 				cur.endTime += Math.min(0.03, mergeGap * 0.4);
@@ -131,7 +133,7 @@
 		};
 		for (let i = 1; i < filtered.length; i++) {
 			const note = filtered[i];
-			if (note.midi === cur.midi && note.t - cur.endTime < mergeGap) {
+			if (Math.abs(note.midi - cur.midi) <= pitchMerge && note.t - cur.endTime < mergeGap) {
 				cur.endTime = note.t;
 			} else {
 				cur.endTime += Math.min(0.03, mergeGap * 0.4);
@@ -474,6 +476,7 @@
 		noiseGate;
 		backingNoiseGate;
 		mergeGap;
+		pitchMerge;
 		offsetSec;
 		render();
 	});

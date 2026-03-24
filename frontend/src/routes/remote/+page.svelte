@@ -43,6 +43,12 @@
 		emit('pitch_merge_gap', pitchMergeGap);
 		saveSongConfig();
 	}
+	let pitchMergeSemitones = $state(0);
+	function setPitchMergeSemitones(val: number) {
+		pitchMergeSemitones = Math.round(val);
+		emit('pitch_merge_semitones', pitchMergeSemitones);
+		saveSongConfig();
+	}
 
 	// Persist offsets server-side per song
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -60,6 +66,7 @@
 					noise_gate: pitchNoiseGate !== 0.05 ? pitchNoiseGate : null,
 					backing_noise_gate: backingNoiseGate !== 0.05 ? backingNoiseGate : null,
 					merge_gap: pitchMergeGap !== 0.08 ? pitchMergeGap : null,
+					merge_semitones: pitchMergeSemitones !== 0 ? pitchMergeSemitones : null,
 				}),
 			}).catch(() => {});
 		}, 500);
@@ -146,10 +153,12 @@
 						pitchNoiseGate = cfg.noise_gate ?? 0.05;
 						backingNoiseGate = cfg.backing_noise_gate ?? 0.05;
 						pitchMergeGap = cfg.merge_gap ?? 0.08;
+						pitchMergeSemitones = cfg.merge_semitones ?? 0;
 						emit('pitch_offset', pitchOffsetSec);
 						emit('pitch_noise_gate', pitchNoiseGate);
 						emit('backing_noise_gate', backingNoiseGate);
 						emit('pitch_merge_gap', pitchMergeGap);
+						emit('pitch_merge_semitones', pitchMergeSemitones);
 					})
 					.catch(() => {});
 			} else {
@@ -158,6 +167,7 @@
 				pitchNoiseGate = 0.05;
 				backingNoiseGate = 0.05;
 				pitchMergeGap = 0.08;
+				pitchMergeSemitones = 0;
 			}
 			// Clear search state for new song
 			searchTitle = '';
@@ -383,6 +393,24 @@
 						<span class="dial-val" class:adjusted={pitchMergeGap !== 0.08}>{(pitchMergeGap * 1000).toFixed(0)}ms</span>
 					</div>
 					{#if pitchMergeGap !== 0.08}<button class="offset-btn reset" onclick={() => setPitchMergeGap(0.08)}>80ms</button>{/if}
+				</div>
+				<div class="sync-row">
+					<span class="sync-label">V-Merge</span>
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="scroll-dial"
+						onwheel={(e) => { e.preventDefault(); setPitchMergeSemitones(Math.max(0, Math.min(12, pitchMergeSemitones + (e.deltaY > 0 ? 1 : -1)))); }}
+						onpointerdown={(e) => {
+							const el = e.currentTarget; el.setPointerCapture(e.pointerId);
+							const startX = e.clientX; const startVal = pitchMergeSemitones;
+							const move = (me: PointerEvent) => setPitchMergeSemitones(Math.max(0, Math.min(12, Math.round(startVal + (me.clientX - startX) * 0.05))));
+							const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); };
+							el.addEventListener('pointermove', move); el.addEventListener('pointerup', up);
+						}}
+					>
+						<div class="dial-ticks"></div>
+						<span class="dial-val" class:adjusted={pitchMergeSemitones !== 0}>{pitchMergeSemitones}st</span>
+					</div>
+					{#if pitchMergeSemitones !== 0}<button class="offset-btn reset" onclick={() => setPitchMergeSemitones(0)}>0</button>{/if}
 				</div>
 				<button class="search-lyrics-btn" onclick={() => { showLyricsSearch = !showLyricsSearch; if (!searchTitle) searchTitle = np.now_playing ?? ''; }}>
 					Search Different Lyrics

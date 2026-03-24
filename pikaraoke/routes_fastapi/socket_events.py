@@ -66,6 +66,11 @@ def setup_socket_events(sio) -> None:
         """Relay pitch note merge gap threshold to all clients."""
         await sio.emit("pitch_merge_gap", gap, skip_sid=sid)
 
+    @sio.on("pitch_merge_semitones")
+    async def handle_pitch_merge_semitones(sid, semitones: float) -> None:
+        """Relay pitch vertical merge (semitone tolerance) to all clients."""
+        await sio.emit("pitch_merge_semitones", semitones, skip_sid=sid)
+
     @sio.on("stem_toggle")
     async def handle_stem_toggle(sid, stem: str) -> None:
         k = get_karaoke()
