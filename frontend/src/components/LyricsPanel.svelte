@@ -22,6 +22,9 @@
 	const wordIdx = $derived(getCurrentWordIndex());
 	const progress = $derived(getWordProgress());
 
+	// Only highlight words if we have real YRC word-level timing
+	const hasRealTiming = $derived(lyrics?.has_word_timing ?? false);
+
 	// Update position every frame via effect
 	$effect(() => {
 		updatePosition(currentTimeMs);
@@ -48,6 +51,7 @@
 	});
 
 	function wordClass(lineIsCurrent: boolean, wIdx: number, activeWordIdx: number): string {
+		if (!hasRealTiming) return 'lyric-word';
 		if (!lineIsCurrent) return 'lyric-word';
 		if (wIdx < activeWordIdx) return 'lyric-word sung';
 		if (wIdx === activeWordIdx) return 'lyric-word active';
@@ -60,6 +64,7 @@
 		activeWordIdx: number,
 		prog: number
 	): string {
+		if (!hasRealTiming) return '';
 		if (lineIsCurrent && wIdx === activeWordIdx) {
 			return `--progress: ${Math.round(prog * 100)}%`;
 		}
@@ -109,7 +114,7 @@
 						</div>
 					{:else}
 						<div class="line-text">
-							<span class="lyric-word" class:sung={state !== 'future'}>{line.text}</span>
+							<span class="lyric-word" class:sung={hasRealTiming && state !== 'future'}>{line.text}</span>
 						</div>
 					{/if}
 
@@ -142,6 +147,8 @@
 
 	/* Position current line near top with 1 past above */
 	.lines-list {
+		-webkit-perspective: 1000px;
+		perspective: 1000px;
 		padding-top: 25%;
 		padding-bottom: 0;
 	}
@@ -153,9 +160,9 @@
 	.lyrics-line {
 		padding: 8px 8px;
 		text-align: left;
-		transition: opacity 0.3s ease;
 		cursor: default;
 		user-select: none;
+		transition: opacity 0.25s ease;
 	}
 
 	.lyrics-line.current {
@@ -178,12 +185,18 @@
 		letter-spacing: 0.01em;
 		word-break: break-word;
 		transform-origin: left top;
-		transition: transform 0.4s ease, opacity 0.3s ease;
+		/* iOS Safari: pre-promote to GPU layer to prevent ghosting */
+		will-change: transform;
+		-webkit-backface-visibility: hidden;
+		backface-visibility: hidden;
+		-webkit-font-smoothing: antialiased;
+		transform: scale(1) translateZ(0);
+		transition: transform 0.25s ease;
 	}
 
 	.lyrics-line.past .line-text,
 	.lyrics-line.future .line-text {
-		transform: scale(0.75);
+		transform: scale(0.75) translateZ(0);
 	}
 
 	.line-translation {

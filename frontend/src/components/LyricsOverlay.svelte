@@ -101,7 +101,7 @@
 							{/if}
 						{/each}
 					{:else}
-						<span class="lyric-word" class:sung={isSung || isActive}>{line.text}</span>
+						<span class="lyric-word" class:sung={hasRealTiming && (isSung || isActive)}>{line.text}</span>
 					{/if}
 				</div>
 
