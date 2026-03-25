@@ -61,12 +61,12 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					lyrics_offset_ms: lyricsOffset || null,
-					pitch_offset_sec: pitchOffsetSec || null,
-					noise_gate: pitchNoiseGate !== 0.05 ? pitchNoiseGate : null,
-					backing_noise_gate: backingNoiseGate !== 0.05 ? backingNoiseGate : null,
-					merge_gap: pitchMergeGap !== 0.08 ? pitchMergeGap : null,
-					merge_semitones: pitchMergeSemitones !== 1 ? pitchMergeSemitones : null,
+					lyrics_offset_ms: lyricsOffset,
+					pitch_offset_sec: pitchOffsetSec,
+					noise_gate: pitchNoiseGate,
+					backing_noise_gate: backingNoiseGate,
+					merge_gap: pitchMergeGap,
+					merge_semitones: pitchMergeSemitones,
 				}),
 			}).catch(() => {});
 		}, 500);
