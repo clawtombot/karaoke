@@ -37,44 +37,12 @@
 	}
 
 	function setVolume(name: string, vol: number) {
-		const clamped = Math.max(0, Math.min(1, Math.round(vol * 20) / 20)); // 5% steps
+		const clamped = Math.max(0, Math.min(1, Math.round(vol * 20) / 20));
 		emit('stem_volume', { stem: name, volume: clamped });
 	}
 
 	function toggleMute(name: string) {
 		emit('stem_toggle', name);
-	}
-
-	// Pointer drag state per stem
-	let dragging: string | null = $state(null);
-	let dragStartY = 0;
-	let dragStartVol = 0;
-	let wasDrag = false;
-
-	function onPointerDown(e: PointerEvent, name: string) {
-		const el = e.currentTarget as HTMLElement;
-		el.setPointerCapture(e.pointerId);
-		dragging = name;
-		dragStartY = e.clientY;
-		dragStartVol = getVolume(name);
-		wasDrag = false;
-	}
-
-	function onPointerMove(e: PointerEvent) {
-		if (!dragging) return;
-		const dy = dragStartY - e.clientY; // up = positive
-		if (Math.abs(dy) > 5) wasDrag = true;
-		const volDelta = dy / 80; // 80px = full range
-		setVolume(dragging, dragStartVol + volDelta);
-	}
-
-	function onPointerUp(e: PointerEvent) {
-		if (!dragging) return;
-		if (!wasDrag) {
-			// Tap — toggle mute
-			toggleMute(dragging);
-		}
-		dragging = null;
 	}
 
 	type Preset = 'karaoke' | 'original' | 'practice';
@@ -92,12 +60,38 @@
 			}
 		}
 	}
+
+	function handlePointerDown(e: PointerEvent, name: string) {
+		const el = e.currentTarget as HTMLElement;
+		el.setPointerCapture(e.pointerId);
+		const startY = e.clientY;
+		const startVol = getVolume(name);
+		let moved = false;
+
+		const onMove = (me: PointerEvent) => {
+			const dy = startY - me.clientY; // up = positive
+			if (Math.abs(dy) > 4) moved = true;
+			if (moved) {
+				setVolume(name, startVol + dy / 80);
+			}
+		};
+
+		const onUp = () => {
+			el.removeEventListener('pointermove', onMove);
+			el.removeEventListener('pointerup', onUp);
+			el.removeEventListener('pointercancel', onUp);
+			if (!moved) toggleMute(name);
+		};
+
+		el.addEventListener('pointermove', onMove);
+		el.addEventListener('pointerup', onUp);
+		el.addEventListener('pointercancel', onUp);
+	}
 </script>
 
 {#if np.vocal_splitter_enabled}
 	<div class="mixer" class:compact>
 		{#if np.stems_available}
-			<!-- Quick presets -->
 			<div class="presets">
 				<button class="preset-btn" onclick={() => applyPreset('karaoke')} title={hasSplitVocals ? 'Lead OFF, backing ON' : 'Vocals OFF'}>
 					<i class="ti ti-microphone-off"></i>
@@ -113,20 +107,14 @@
 				</button>
 			</div>
 
-			<!-- Individual stem controls -->
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="stem-row"
-				onpointermove={onPointerMove}
-				onpointerup={onPointerUp}
-				onpointercancel={onPointerUp}
-			>
+			<div class="stem-row">
 				{#each stems as stem}
 					{@const vol = getVolume(stem.name)}
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div
 						class="stem-btn"
 						class:muted={vol === 0}
-						onpointerdown={(e) => onPointerDown(e, stem.name)}
+						onpointerdown={(e) => handlePointerDown(e, stem.name)}
 						title="{stem.label}: {Math.round(vol * 100)}%"
 					>
 						<div class="stem-icon-wrap">
@@ -134,9 +122,6 @@
 							<i class="{stem.iconClass} stem-icon-fill" style="clip-path: inset({100 - vol * 100}% 0 0 0)"></i>
 						</div>
 						<span class="stem-label">{stem.label}</span>
-						<div class="stem-bar">
-							<div class="stem-bar-fill" style="height: {vol * 100}%"></div>
-						</div>
 					</div>
 				{/each}
 			</div>
@@ -200,8 +185,6 @@
 		display: flex;
 		gap: 10px;
 		justify-content: center;
-		touch-action: none; /* prevent scroll while dragging */
-		user-select: none;
 	}
 
 	.stem-btn {
@@ -211,6 +194,8 @@
 		gap: 3px;
 		padding: 6px;
 		cursor: ns-resize;
+		touch-action: none;
+		user-select: none;
 		transition: opacity 0.15s;
 	}
 	.stem-btn.muted {
@@ -244,24 +229,6 @@
 		text-transform: uppercase;
 		letter-spacing: 0.03em;
 		color: var(--color-dim);
-	}
-
-	.stem-bar {
-		width: 3px;
-		height: 16px;
-		border-radius: 2px;
-		background: rgba(255, 255, 255, 0.08);
-		overflow: hidden;
-		display: flex;
-		align-items: flex-end;
-	}
-
-	.stem-bar-fill {
-		width: 100%;
-		border-radius: 2px;
-		background: var(--color-teal);
-		transition: height 0.1s ease-out;
-		box-shadow: 0 0 4px rgba(0, 210, 255, 0.4);
 	}
 
 	.stem-pending {
@@ -300,24 +267,9 @@
 		text-align: center;
 	}
 
-	/* Compact mode for splash overlay */
-	.compact .presets {
-		gap: 4px;
-	}
-	.compact .preset-btn {
-		padding: 3px 6px;
-		font-size: 0.65rem;
-	}
-	.compact .stem-btn {
-		padding: 4px;
-	}
-	.compact .stem-icon-wrap {
-		font-size: 1rem;
-	}
-	.compact .stem-label {
-		display: none;
-	}
-	.compact .stem-bar {
-		height: 10px;
-	}
+	.compact .presets { gap: 4px; }
+	.compact .preset-btn { padding: 3px 6px; font-size: 0.65rem; }
+	.compact .stem-btn { padding: 4px; }
+	.compact .stem-icon-wrap { font-size: 1rem; }
+	.compact .stem-label { display: none; }
 </style>
