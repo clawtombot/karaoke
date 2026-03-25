@@ -105,18 +105,22 @@ def _parse_lyric_response(data: dict) -> SongLyrics | None:
     if not lines:
         return None
 
-    # Translation lyrics — skip Chinese translations for non-Chinese songs
-    # (NetEase tlyric is always Chinese, which is noise for EN/KR/JP karaoke)
+    # Translation lyrics — NetEase tlyric is always Chinese.
+    # Only useful for Chinese songs (shows pinyin-adjacent help) or
+    # non-CJK songs (rare, but would show English translation).
+    # Skip for Japanese/Korean songs — Chinese translations are noise for karaoke.
     tlyric_data = data.get("tlyric", {})
     tlyric_text = tlyric_data.get("lyric", "") if isinstance(tlyric_data, dict) else ""
     has_translation = False
     if tlyric_text:
         translation_lines = parse_lrc(tlyric_text)
-        # Only merge if translation is useful (not Chinese translations of non-Chinese lyrics)
-        main_is_cjk = any(_has_cjk(line.text) for line in lines[:5])
         trans_is_cjk = any(_has_cjk(tl.text) for tl in translation_lines[:5])
-        if not trans_is_cjk or main_is_cjk:
-            # Keep: translation is non-CJK, or main lyrics are CJK (translation may be helpful)
+        main_is_chinese = any(_has_cjk(line.text) for line in lines[:5]) and not any(
+            _has_kana(line.text) for line in lines[:5]
+        )
+        # Keep translation only if: translation is non-CJK (e.g. English),
+        # or main lyrics are Chinese (not Japanese/Korean)
+        if not trans_is_cjk or main_is_chinese:
             has_translation = _merge_translations(lines, translation_lines)
 
     # Romanization (pinyin/romaji)
@@ -142,6 +146,12 @@ def _has_cjk(text: str) -> bool:
     """Check if text contains Chinese/Japanese/Korean characters."""
     import re
     return bool(re.search(r'[\u4e00-\u9fff]', text))
+
+
+def _has_kana(text: str) -> bool:
+    """Check if text contains Japanese hiragana or katakana."""
+    import re
+    return bool(re.search(r'[\u3040-\u30ff]', text))
 
 
 def _merge_translations(
