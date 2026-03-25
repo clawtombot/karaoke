@@ -43,7 +43,7 @@
 		emit('pitch_merge_gap', pitchMergeGap);
 		saveSongConfig();
 	}
-	let pitchMergeSemitones = $state(0);
+	let pitchMergeSemitones = $state(1);
 	function setPitchMergeSemitones(val: number) {
 		pitchMergeSemitones = Math.round(val);
 		emit('pitch_merge_semitones', pitchMergeSemitones);
@@ -66,7 +66,7 @@
 					noise_gate: pitchNoiseGate !== 0.05 ? pitchNoiseGate : null,
 					backing_noise_gate: backingNoiseGate !== 0.05 ? backingNoiseGate : null,
 					merge_gap: pitchMergeGap !== 0.08 ? pitchMergeGap : null,
-					merge_semitones: pitchMergeSemitones !== 0 ? pitchMergeSemitones : null,
+					merge_semitones: pitchMergeSemitones !== 1 ? pitchMergeSemitones : null,
 				}),
 			}).catch(() => {});
 		}, 500);
@@ -153,7 +153,7 @@
 						pitchNoiseGate = cfg.noise_gate ?? 0.05;
 						backingNoiseGate = cfg.backing_noise_gate ?? 0.05;
 						pitchMergeGap = cfg.merge_gap ?? 0.08;
-						pitchMergeSemitones = cfg.merge_semitones ?? 0;
+						pitchMergeSemitones = cfg.merge_semitones ?? 1;
 						emit('pitch_offset', pitchOffsetSec);
 						emit('pitch_noise_gate', pitchNoiseGate);
 						emit('backing_noise_gate', backingNoiseGate);
@@ -167,7 +167,7 @@
 				pitchNoiseGate = 0.05;
 				backingNoiseGate = 0.05;
 				pitchMergeGap = 0.08;
-				pitchMergeSemitones = 0;
+				pitchMergeSemitones = 1;
 			}
 			// Clear search state for new song
 			searchTitle = '';
@@ -408,9 +408,9 @@
 						}}
 					>
 						<div class="dial-ticks"></div>
-						<span class="dial-val" class:adjusted={pitchMergeSemitones !== 0}>{pitchMergeSemitones}st</span>
+						<span class="dial-val" class:adjusted={pitchMergeSemitones !== 1}>{pitchMergeSemitones}st</span>
 					</div>
-					{#if pitchMergeSemitones !== 0}<button class="offset-btn reset" onclick={() => setPitchMergeSemitones(0)}>0</button>{/if}
+					{#if pitchMergeSemitones !== 1}<button class="offset-btn reset" onclick={() => setPitchMergeSemitones(1)}>1</button>{/if}
 				</div>
 				<button class="search-lyrics-btn" onclick={() => { showLyricsSearch = !showLyricsSearch; if (!searchTitle) searchTitle = np.now_playing ?? ''; }}>
 					Search Different Lyrics

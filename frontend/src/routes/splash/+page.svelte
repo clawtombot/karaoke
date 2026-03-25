@@ -33,7 +33,7 @@
 	let pitchNoiseGate = $state(0.05);
 	let backingNoiseGate = $state(0.05);
 	let pitchMergeGap = $state(0.08);
-	let pitchMergeSemitones = $state(0);
+	let pitchMergeSemitones = $state(1);
 	let stemsReady = false; // Stems loaded but waiting for video to play
 	let stemsInitiated = false; // Stem loading started for current song
 	let stemGeneration = 0; // Increments on song change to cancel stale loads

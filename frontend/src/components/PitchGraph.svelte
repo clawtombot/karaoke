@@ -40,7 +40,7 @@
 		noiseGate = 0.05,
 		backingNoiseGate = 0.05,
 		mergeGap = 0.08,
-		pitchMerge = 0,
+		pitchMerge = 1,
 		leadColor = '#ff69b4',
 		backingColor = '#7c6fff',
 	}: {

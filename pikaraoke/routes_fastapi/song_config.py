@@ -63,7 +63,7 @@ _CONFIG_DEFAULTS: dict[str, int | float] = {
     "noise_gate": 0.05,
     "backing_noise_gate": 0.05,
     "merge_gap": 0.08,
-    "merge_semitones": 0,
+    "merge_semitones": 1,
 }
 
 
