@@ -57,7 +57,7 @@
 		saveTimer = setTimeout(() => {
 			const file = np.now_playing_file;
 			if (!file) return;
-			fetch(api(`/api/song_config/${encodeURIComponent(file)}`), {
+			fetch(api(`/api/song_config?song=${encodeURIComponent(file)}`), {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -144,7 +144,7 @@
 			// Restore saved config for this song
 			const file = np.now_playing_file;
 			if (file) {
-				fetch(api(`/api/song_config/${encodeURIComponent(file)}`))
+				fetch(api(`/api/song_config?song=${encodeURIComponent(file)}`))
 					.then((r) => r.ok ? r.json() : {})
 					.then((cfg) => {
 						if (cfg.lyrics_offset_ms) _setOffset(cfg.lyrics_offset_ms, true);

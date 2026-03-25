@@ -67,10 +67,10 @@ _CONFIG_DEFAULTS: dict[str, int | float] = {
 }
 
 
-@router.post("/api/song_config/{song_basename}")
-async def set_song_config(song_basename: str, body: SongConfigBody):
+@router.post("/api/song_config")
+async def set_song_config(song: str, body: SongConfigBody):
     """Save per-song configuration (offsets, noise gate, etc.)."""
-    name = os.path.splitext(song_basename)[0]
+    name = os.path.splitext(song)[0]
     data = _load()
     cfg = data.get(name, {})
 
@@ -91,7 +91,7 @@ async def set_song_config(song_basename: str, body: SongConfigBody):
     return {"ok": True, "config": cfg}
 
 
-@router.get("/api/song_config/{song_basename}")
-async def read_song_config(song_basename: str):
+@router.get("/api/song_config")
+async def read_song_config(song: str):
     """Get per-song configuration."""
-    return get_song_config(song_basename)
+    return get_song_config(song)
