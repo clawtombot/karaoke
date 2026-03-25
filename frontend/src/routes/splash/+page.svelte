@@ -241,6 +241,21 @@
 		fetchPitch();
 		pitchRetryId = setInterval(fetchPitch, 5000);
 
+		// Restore saved config for this song (TV needs its own fetch, not just socket)
+		const file = np.now_playing_file;
+		if (file) {
+			fetch(`${base}/api/song_config?song=${encodeURIComponent(file)}`)
+				.then((r) => r.ok ? r.json() : {})
+				.then((cfg) => {
+					if (cfg.pitch_offset_sec !== undefined) pitchOffsetSec = cfg.pitch_offset_sec;
+					if (cfg.noise_gate !== undefined) pitchNoiseGate = cfg.noise_gate;
+					if (cfg.backing_noise_gate !== undefined) backingNoiseGate = cfg.backing_noise_gate;
+					if (cfg.merge_gap !== undefined) pitchMergeGap = cfg.merge_gap;
+					if (cfg.merge_semitones !== undefined) pitchMergeSemitones = cfg.merge_semitones;
+				})
+				.catch(() => {});
+		}
+
 		// Load stems if already available (cached from previous play)
 		if (np.stems_available && np.stem_urls) {
 			loadAndActivateStems();
