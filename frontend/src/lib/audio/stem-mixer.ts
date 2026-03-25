@@ -177,10 +177,11 @@ export function toggleStem(stem: string, enabled: boolean, volume: number = 1) {
 	setStemVolume(stem, enabled ? volume : 0);
 }
 
-/** Apply a full mix state. */
-export function applyMix(mix: Record<string, boolean>, volume: number = 1) {
-	for (const [stem, enabled] of Object.entries(mix)) {
-		toggleStem(stem, enabled, volume);
+/** Apply a full mix state. Values can be boolean (legacy) or numeric 0-1. */
+export function applyMix(mix: Record<string, boolean | number>, volume: number = 1) {
+	for (const [stem, val] of Object.entries(mix)) {
+		const stemVol = typeof val === 'number' ? val : (val ? 1 : 0);
+		setStemVolume(stem, stemVol * volume);
 	}
 }
 

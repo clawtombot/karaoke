@@ -1,11 +1,12 @@
 <script lang="ts">
 	/**
-	 * Compact stem mixer — icon-only toggle row + quick presets.
-	 * Dynamically adapts to 6-stem (legacy) or 7-stem (lead/backing split) layouts.
+	 * Stem mixer — swipe up/down on icons to control per-stem volume.
+	 * Tap to toggle mute. Icon fills from bottom to top based on volume.
 	 */
 	import { getState } from '$lib/stores/playback.svelte';
+	import { emit } from '$lib/stores/socket.svelte';
 
-	let { onToggle, compact = false }: { onToggle: (stem: string) => void; compact?: boolean } = $props();
+	let { compact = false }: { compact?: boolean } = $props();
 
 	const np = $derived(getState());
 
@@ -20,7 +21,6 @@
 		{ name: 'piano', iconClass: 'ti ti-piano', label: 'Piano' },
 	] as const;
 
-	// Show only stems that exist in the current stem_urls from server
 	const stems = $derived(
 		np.stem_urls
 			? allStems.filter((s) => s.name in np.stem_urls)
@@ -29,30 +29,68 @@
 
 	const hasSplitVocals = $derived(np.stem_urls && 'lead_vocals' in np.stem_urls);
 
+	function getVolume(name: string): number {
+		const v = np.stem_mix[name];
+		if (v === undefined || v === true) return 1.0;
+		if (v === false) return 0.0;
+		return Number(v);
+	}
+
+	function setVolume(name: string, vol: number) {
+		const clamped = Math.max(0, Math.min(1, Math.round(vol * 20) / 20)); // 5% steps
+		emit('stem_volume', { stem: name, volume: clamped });
+	}
+
+	function toggleMute(name: string) {
+		emit('stem_toggle', name);
+	}
+
+	// Pointer drag state per stem
+	let dragging: string | null = $state(null);
+	let dragStartY = 0;
+	let dragStartVol = 0;
+	let wasDrag = false;
+
+	function onPointerDown(e: PointerEvent, name: string) {
+		const el = e.currentTarget as HTMLElement;
+		el.setPointerCapture(e.pointerId);
+		dragging = name;
+		dragStartY = e.clientY;
+		dragStartVol = getVolume(name);
+		wasDrag = false;
+	}
+
+	function onPointerMove(e: PointerEvent) {
+		if (!dragging) return;
+		const dy = dragStartY - e.clientY; // up = positive
+		if (Math.abs(dy) > 5) wasDrag = true;
+		const volDelta = dy / 80; // 80px = full range
+		setVolume(dragging, dragStartVol + volDelta);
+	}
+
+	function onPointerUp(e: PointerEvent) {
+		if (!dragging) return;
+		if (!wasDrag) {
+			// Tap — toggle mute
+			toggleMute(dragging);
+		}
+		dragging = null;
+	}
+
 	type Preset = 'karaoke' | 'original' | 'practice';
 
 	function applyPreset(preset: Preset) {
-		const presetMix: Record<string, boolean> = {};
 		for (const s of stems) {
+			let targetVol = 1.0;
 			if (preset === 'karaoke') {
-				// Mute lead vocals (or combined vocals), keep backing
-				presetMix[s.name] = s.name !== 'vocals' && s.name !== 'lead_vocals';
-			} else if (preset === 'original') {
-				presetMix[s.name] = true;
+				targetVol = (s.name === 'vocals' || s.name === 'lead_vocals') ? 0.0 : 1.0;
 			} else if (preset === 'practice') {
-				presetMix[s.name] = true; // All on, but vocals at 30% handled by volume
+				targetVol = (s.name === 'vocals' || s.name === 'lead_vocals') ? 0.3 : 1.0;
+			}
+			if (getVolume(s.name) !== targetVol) {
+				setVolume(s.name, targetVol);
 			}
 		}
-		// Toggle each stem that needs to change
-		for (const [name, shouldBeOn] of Object.entries(presetMix)) {
-			if ((np.stem_mix[name] ?? true) !== shouldBeOn) {
-				onToggle(name);
-			}
-		}
-	}
-
-	function isEnabled(name: string): boolean {
-		return np.stem_mix[name] ?? true;
 	}
 </script>
 
@@ -61,33 +99,45 @@
 		{#if np.stems_available}
 			<!-- Quick presets -->
 			<div class="presets">
-				<button class="preset-btn" on:click={() => applyPreset('karaoke')} title={hasSplitVocals ? 'Lead OFF, backing ON' : 'Vocals OFF'}>
+				<button class="preset-btn" onclick={() => applyPreset('karaoke')} title={hasSplitVocals ? 'Lead OFF, backing ON' : 'Vocals OFF'}>
 					<i class="ti ti-microphone-off"></i>
 					{#if !compact}<span>Karaoke</span>{/if}
 				</button>
-				<button class="preset-btn" on:click={() => applyPreset('original')} title="All stems ON">
+				<button class="preset-btn" onclick={() => applyPreset('original')} title="All stems full">
 					<i class="ti ti-music"></i>
 					{#if !compact}<span>Original</span>{/if}
 				</button>
-				<button class="preset-btn" on:click={() => applyPreset('practice')} title="Vocals low">
+				<button class="preset-btn" onclick={() => applyPreset('practice')} title="Lead vocals at 30%">
 					<i class="ti ti-headphones"></i>
 					{#if !compact}<span>Practice</span>{/if}
 				</button>
 			</div>
 
-			<!-- Individual stem toggles -->
-			<div class="stem-row">
+			<!-- Individual stem controls -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="stem-row"
+				onpointermove={onPointerMove}
+				onpointerup={onPointerUp}
+				onpointercancel={onPointerUp}
+			>
 				{#each stems as stem}
-					<button
+					{@const vol = getVolume(stem.name)}
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div
 						class="stem-btn"
-						class:active={isEnabled(stem.name)}
-						on:click={() => onToggle(stem.name)}
-						title={stem.label}
+						class:muted={vol === 0}
+						onpointerdown={(e) => onPointerDown(e, stem.name)}
+						title="{stem.label}: {Math.round(vol * 100)}%"
 					>
-						<i class="{stem.iconClass}"></i>
+						<div class="stem-icon-wrap">
+							<i class="{stem.iconClass} stem-icon-bg"></i>
+							<i class="{stem.iconClass} stem-icon-fill" style="clip-path: inset({100 - vol * 100}% 0 0 0)"></i>
+						</div>
 						<span class="stem-label">{stem.label}</span>
-						<span class="stem-dot" class:on={isEnabled(stem.name)}></span>
-					</button>
+						<div class="stem-bar">
+							<div class="stem-bar-fill" style="height: {vol * 100}%"></div>
+						</div>
+					</div>
 				{/each}
 			</div>
 		{:else if np.now_playing}
@@ -150,6 +200,8 @@
 		display: flex;
 		gap: 10px;
 		justify-content: center;
+		touch-action: none; /* prevent scroll while dragging */
+		user-select: none;
 	}
 
 	.stem-btn {
@@ -158,18 +210,32 @@
 		align-items: center;
 		gap: 3px;
 		padding: 6px;
-		border: none;
-		background: transparent;
-		color: var(--color-faint);
-		cursor: pointer;
-		transition: color 0.15s;
+		cursor: ns-resize;
+		transition: opacity 0.15s;
+	}
+	.stem-btn.muted {
+		opacity: 0.4;
+	}
+
+	.stem-icon-wrap {
+		position: relative;
+		width: 1.4em;
+		height: 1.4em;
 		font-size: 1.2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
-	.stem-btn.active {
+
+	.stem-icon-bg {
+		position: absolute;
+		color: rgba(255, 255, 255, 0.15);
+	}
+
+	.stem-icon-fill {
+		position: absolute;
 		color: var(--color-teal);
-	}
-	.stem-btn:hover {
-		color: var(--color-text);
+		transition: clip-path 0.1s ease-out;
 	}
 
 	.stem-label {
@@ -177,19 +243,25 @@
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.03em;
-		opacity: 0.7;
+		color: var(--color-dim);
 	}
 
-	.stem-dot {
-		width: 5px;
-		height: 5px;
-		border-radius: 50%;
-		background: var(--color-faint);
-		transition: background 0.15s;
+	.stem-bar {
+		width: 3px;
+		height: 16px;
+		border-radius: 2px;
+		background: rgba(255, 255, 255, 0.08);
+		overflow: hidden;
+		display: flex;
+		align-items: flex-end;
 	}
-	.stem-dot.on {
+
+	.stem-bar-fill {
+		width: 100%;
+		border-radius: 2px;
 		background: var(--color-teal);
-		box-shadow: 0 0 6px rgba(0, 210, 255, 0.5);
+		transition: height 0.1s ease-out;
+		box-shadow: 0 0 4px rgba(0, 210, 255, 0.4);
 	}
 
 	.stem-pending {
@@ -237,10 +309,15 @@
 		font-size: 0.65rem;
 	}
 	.compact .stem-btn {
-		font-size: 1rem;
 		padding: 4px;
+	}
+	.compact .stem-icon-wrap {
+		font-size: 1rem;
 	}
 	.compact .stem-label {
 		display: none;
+	}
+	.compact .stem-bar {
+		height: 10px;
 	}
 </style>

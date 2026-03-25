@@ -515,7 +515,7 @@
 					<button class="key-apply" onclick={applyTranspose}><i class="ti ti-check"></i></button>
 				{/if}
 			</div>
-			<StemMixer onToggle={toggleStem} />
+			<StemMixer />
 		</div>
 
 	{:else}

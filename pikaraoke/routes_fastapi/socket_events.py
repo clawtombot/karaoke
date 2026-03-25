@@ -77,6 +77,14 @@ def setup_socket_events(sio) -> None:
         if k.toggle_stem(stem):
             await sio.emit("stem_mix_update", k.stem_mix)
 
+    @sio.on("stem_volume")
+    async def handle_stem_volume(sid, data: dict) -> None:
+        k = get_karaoke()
+        stem = data.get("stem", "")
+        volume = float(data.get("volume", 1.0))
+        if k.set_stem_volume(stem, volume):
+            await sio.emit("stem_mix_update", k.stem_mix)
+
     @sio.on("playback_position")
     async def handle_playback_position(sid, position: float) -> None:
         global master_splash_id

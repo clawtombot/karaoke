@@ -262,7 +262,7 @@ class Karaoke:
 
         # Stem splitter setup
         self.boot_id = str(int(time.time()))
-        self.stem_mix = {s: True for s in ALL_STEM_NAMES}
+        self.stem_mix: dict[str, float] = {s: 1.0 for s in ALL_STEM_NAMES}
         if vocal_splitter:
             self._init_stem_splitter()
 
@@ -301,14 +301,25 @@ class Karaoke:
         return {name: os.path.join(stem_dir, f"{name}.m4a") for name in names}
 
     def toggle_stem(self, stem: str) -> bool:
-        """Toggle a stem on/off in the mix.
+        """Toggle a stem on/off in the mix (0.0 <-> 1.0).
 
         Returns True if toggled, False if invalid stem name.
         """
         if stem not in ALL_STEM_NAMES and stem not in STEM_NAMES:
             return False
-        self.stem_mix[stem] = not self.stem_mix[stem]
+        self.stem_mix[stem] = 0.0 if self.stem_mix.get(stem, 1.0) > 0 else 1.0
         logging.info("Stem %s toggled to %s", stem, self.stem_mix[stem])
+        self.update_now_playing_socket()
+        return True
+
+    def set_stem_volume(self, stem: str, volume: float) -> bool:
+        """Set a stem's volume (0.0–1.0).
+
+        Returns True if set, False if invalid stem name.
+        """
+        if stem not in ALL_STEM_NAMES and stem not in STEM_NAMES:
+            return False
+        self.stem_mix[stem] = max(0.0, min(1.0, volume))
         self.update_now_playing_socket()
         return True
 
@@ -524,7 +535,7 @@ class Karaoke:
         """Reset all now playing state to defaults."""
         self.playback_controller.reset_now_playing()
         self.volume = self.preferences.get_or_default("volume")
-        self.stem_mix = {s: True for s in ALL_STEM_NAMES}
+        self.stem_mix = {s: 1.0 for s in ALL_STEM_NAMES}
         self._stem_url_cache = (None, None, None)
         self.update_now_playing_socket()
 
