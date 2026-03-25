@@ -62,6 +62,8 @@
 		if (!hasRealTiming) return 'lyric-word';
 		if (isSungLine) return 'lyric-word sung';
 		if (!isActiveLine) return 'lyric-word';
+		// Gap between lines: activeWordIdx is -1, all words on this line are done
+		if (activeWordIdx === -1) return 'lyric-word sung';
 		if (wIdx < activeWordIdx) return 'lyric-word sung';
 		if (wIdx === activeWordIdx) return 'lyric-word active';
 		return 'lyric-word';
