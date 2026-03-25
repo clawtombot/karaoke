@@ -106,6 +106,7 @@
     color: #fff;
     -webkit-text-fill-color: #fff;
     display: inline;
+    transition: color 0.15s, -webkit-text-fill-color 0.15s;
   }
 
   .lyric-word.sung {

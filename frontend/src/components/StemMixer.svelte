@@ -62,6 +62,7 @@
 	}
 
 	function handlePointerDown(e: PointerEvent, name: string) {
+		e.preventDefault();
 		const el = e.currentTarget as HTMLElement;
 		el.setPointerCapture(e.pointerId);
 		const startY = e.clientY;
