@@ -50,9 +50,11 @@
 		container.scrollBy({ top: offset, behavior: 'smooth' });
 	});
 
-	function wordClass(lineIsCurrent: boolean, wIdx: number, activeWordIdx: number): string {
+	function wordClass(lineState: 'past' | 'current' | 'future', wIdx: number, activeWordIdx: number): string {
 		if (!hasRealTiming) return 'lyric-word';
-		if (!lineIsCurrent) return 'lyric-word';
+		if (lineState === 'past') return 'lyric-word sung';
+		if (lineState !== 'current') return 'lyric-word';
+		if (activeWordIdx === -1) return 'lyric-word sung';
 		if (wIdx < activeWordIdx) return 'lyric-word sung';
 		if (wIdx === activeWordIdx) return 'lyric-word active';
 		return 'lyric-word';
@@ -104,12 +106,12 @@
 								{@const needsSpace = wIdx < line.words.length - 1 && !/^[,.\-!?;:)）」』】]/.test(line.words[wIdx + 1]?.text ?? '')}
 								{#if line.romanized}
 									<ruby
-										class={wordClass(state === 'current', wIdx, wordIdx)}
+										class={wordClass(state, wIdx, wordIdx)}
 										style={wordStyle(state === 'current', wIdx, wordIdx, progress)}
 									>{word.text}<rt>{line.romanized.split(/\s+/)[wIdx] ?? ''}</rt></ruby>{needsSpace ? ' ' : ''}
 								{:else}
 									<span
-										class={wordClass(state === 'current', wIdx, wordIdx)}
+										class={wordClass(state, wIdx, wordIdx)}
 										style={wordStyle(state === 'current', wIdx, wordIdx, progress)}
 									>{word.text}</span>{needsSpace ? ' ' : ''}
 								{/if}
