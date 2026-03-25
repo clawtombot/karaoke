@@ -51,6 +51,20 @@ class SongConfigBody(BaseModel):
     lyrics_offset_ms: int | None = None
     pitch_offset_sec: float | None = None
     noise_gate: float | None = None
+    backing_noise_gate: float | None = None
+    merge_gap: float | None = None
+    merge_semitones: int | None = None
+
+
+# Fields and their "default" values — when set to default, they get removed from config
+_CONFIG_DEFAULTS: dict[str, int | float] = {
+    "lyrics_offset_ms": 0,
+    "pitch_offset_sec": 0,
+    "noise_gate": 0.05,
+    "backing_noise_gate": 0.05,
+    "merge_gap": 0.08,
+    "merge_semitones": 0,
+}
 
 
 @router.post("/api/song_config/{song_basename}")
@@ -60,23 +74,13 @@ async def set_song_config(song_basename: str, body: SongConfigBody):
     data = _load()
     cfg = data.get(name, {})
 
-    if body.lyrics_offset_ms is not None:
-        if body.lyrics_offset_ms == 0:
-            cfg.pop("lyrics_offset_ms", None)
-        else:
-            cfg["lyrics_offset_ms"] = body.lyrics_offset_ms
-
-    if body.pitch_offset_sec is not None:
-        if body.pitch_offset_sec == 0:
-            cfg.pop("pitch_offset_sec", None)
-        else:
-            cfg["pitch_offset_sec"] = body.pitch_offset_sec
-
-    if body.noise_gate is not None:
-        if body.noise_gate == 0.05:
-            cfg.pop("noise_gate", None)
-        else:
-            cfg["noise_gate"] = body.noise_gate
+    for field, default in _CONFIG_DEFAULTS.items():
+        val = getattr(body, field, None)
+        if val is not None:
+            if val == default:
+                cfg.pop(field, None)
+            else:
+                cfg[field] = val
 
     if cfg:
         data[name] = cfg
