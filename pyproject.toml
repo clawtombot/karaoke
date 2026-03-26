@@ -1,5 +1,5 @@
 [project]
-name = "pikaraoke"
+name = "tommyskaraoke"
 version = "1.19.0"
 description = "Youtube-based Karaoke machine for Raspberry Pi, OSX, Windows, and Linux"
 authors = [{name = "Vic Wong"}]
@@ -16,6 +16,7 @@ dependencies = [
   "qrcode[png]==8.2",
   "psutil==7.2.1",
   "requests==2.32.5",
+  "fastapi>=0.115.0,<1.0.0",
   "flask-paginate==2024.4.12",
   "flask-smorest>=0.46.0",
   "Babel==2.17.0",
@@ -24,6 +25,7 @@ dependencies = [
   "yt-dlp[default]>=2026.03.03",
   "flask-socketio>=5.5.0",
   "gevent>=24.11.1",
+  "uvicorn[standard]>=0.34.0,<1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -32,15 +34,27 @@ dev = [
   "pytest>=9.0.2",
   "pytest-cov>=7.0.0",
 ]
-# Install vocal splitting deps with: pip install pikaraoke[vocal]
+# Install separation deps with: pip install tommyskaraoke[separation]
 # GPU support requires a CUDA-enabled torch build — see https://pytorch.org/get-started/locally/
-vocal = [
-  "torch>=1.5.1",
+separation = [
+  "torch>=2.6.0",
+  "torchaudio>=2.6.0",
+  "demucs>=4.0.1",
   "librosa>=0.10.0",
   "soundfile>=0.12.0",
   "tqdm>=4.30",
   "numpy>=1.21.0",
-  "audio-separator[cpu]>=0.43.0",
+  "audio-separator>=0.43.0",
+]
+vocal = [
+  "torch>=2.6.0",
+  "torchaudio>=2.6.0",
+  "demucs>=4.0.1",
+  "librosa>=0.10.0",
+  "soundfile>=0.12.0",
+  "tqdm>=4.30",
+  "numpy>=1.21.0",
+  "audio-separator>=0.43.0",
 ]
 
 [dependency-groups]
@@ -51,18 +65,19 @@ dev = [
 ]
 
 [project.scripts]
-pikaraoke = "pikaraoke.app:main"
+tommyskaraoke = "tommyskaraoke.app_fastapi:main"
 
 [project.urls]
-Homepage = "https://github.com/vicwomg/pikaraoke"
-Repository = "https://github.com/vicwomg/pikaraoke"
+Homepage = "https://github.com/tomm3hgunn/TommysKaraoke"
+Repository = "https://github.com/tomm3hgunn/TommysKaraoke"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["pikaraoke"]
+packages = ["tommyskaraoke"]
+artifacts = ["frontend/dist/**"]
 
 # Poetry-specific configuration (reads from [project] above)
 [tool.poetry]
@@ -90,8 +105,8 @@ pythonPlatform = "Linux"
 
 [tool.coverage.run]
 omit = [
-    "pikaraoke/constants.py",
-    "pikaraoke/app.py",
-    "pikaraoke/lib/current_app.py",
-    "pikaraoke/lib/args.py",
+    "tommyskaraoke/constants.py",
+    "tommyskaraoke/app.py",
+    "tommyskaraoke/lib/current_app.py",
+    "tommyskaraoke/lib/args.py",
 ]

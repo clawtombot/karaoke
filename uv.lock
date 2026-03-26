@@ -1499,7 +1499,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pikaraoke"
+name = "tommyskaraoke"
 version = "1.19.0"
 source = { editable = "." }
 dependencies = [

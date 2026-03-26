@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-Guidance for Claude Code when working on PiKaraoke.
+Guidance for Claude Code when working on TommysKaraoke.
 
 ## Project Overview
 
-PiKaraoke is a karaoke system for Raspberry Pi, Windows, macOS, and Linux. Web interface for YouTube song search, queuing, and playback with pitch shifting and streaming.
+TommysKaraoke is a karaoke system for Raspberry Pi, Windows, macOS, and Linux. Web interface for YouTube song search, queuing, and playback with pitch shifting and streaming.
 
 ## Core Principles
 
@@ -43,7 +43,7 @@ PiKaraoke is a karaoke system for Raspberry Pi, Windows, macOS, and Linux. Web i
 
 YouTube video filenames use exactly 11-character IDs:
 
-- PiKaraoke format: `Title---dQw4w9WgXcQ.mp4` (triple dash)
+- TommysKaraoke format: `Title---dQw4w9WgXcQ.mp4` (triple dash)
 - yt-dlp format: `Title [dQw4w9WgXcQ].mp4` (brackets)
 
 Only support these two patterns.
@@ -63,14 +63,14 @@ Only support these two patterns.
 
 ## Deployment
 
-The SvelteKit frontend is static — pikaraoke serves files from `frontend/dist/` on each request.
+The SvelteKit frontend is static — tommyskaraoke serves files from `frontend/dist/` on each request.
 
 ```bash
 # Frontend-only changes: just rebuild, no restart needed
 cd frontend && BASE_PATH=/karaoke npm run build
 # Then hard-refresh the browser
 
-# Backend (Python) changes: restart the pikaraoke process
+# Backend (Python) changes: restart the tommyskaraoke process
 # NanoClaw manages it — restart via launchctl or re-expose the app
 
 # NanoClaw TypeScript changes: rebuild + restart NanoClaw

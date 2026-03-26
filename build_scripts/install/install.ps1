@@ -5,7 +5,7 @@ Param(
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "--- PiKaraoke Windows Installer ---" -ForegroundColor Cyan
+Write-Host "--- TommysKaraoke Windows Installer ---" -ForegroundColor Cyan
 
 # 1. Check for Winget
 if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
@@ -14,7 +14,7 @@ if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
 }
 
 # Determine packages to install
-$installList = @("pikaraoke (via uv)")
+$installList = @("tommyskaraoke (via uv)")
 $skipDeno = $false
 if (Get-Command node -ErrorAction SilentlyContinue) {
     Write-Host "Node.js detected. Skipping Deno installation."
@@ -81,46 +81,46 @@ Write-Host "Checking for existing uv installations..." -ForegroundColor Yellow
 $uvPackages = ""
 $uvPackages = uv tool list | Out-String
 
-# 6. install pikaraoke with uv
-if ($uvPackages -match "pikaraoke") {
-    Write-Host "Upgrading pikaraoke via uv..." -ForegroundColor Yellow
+# 6. install tommyskaraoke with uv
+if ($uvPackages -match "tommyskaraoke") {
+    Write-Host "Upgrading tommyskaraoke via uv..." -ForegroundColor Yellow
     if ($Local) {
         uv tool install --force .
     } else {
-        uv tool upgrade pikaraoke
+        uv tool upgrade tommyskaraoke
     }
 } else {
-    Write-Host "Installing pikaraoke via uv..." -ForegroundColor Yellow
+    Write-Host "Installing tommyskaraoke via uv..." -ForegroundColor Yellow
     if ($Local) {
         uv tool install .
     } else {
-        uv tool install pikaraoke
+        uv tool install tommyskaraoke
     }
 }
-if ($LASTEXITCODE -ne 0) { throw "Failed to install/upgrade pikaraoke via uv tool" }
+if ($LASTEXITCODE -ne 0) { throw "Failed to install/upgrade tommyskaraoke via uv tool" }
 
 # 7. Create Desktop Shortcut
 Write-Host "Creating Desktop Shortcuts..." -ForegroundColor Yellow
 try {
     $desktopPath = [System.Environment]::GetFolderPath("Desktop")
     if ([string]::IsNullOrWhiteSpace($desktopPath)) { throw "Could not resolve Desktop path" }
-    # Robust path resolution for pikaraoke.exe
-    $pikaraokeExe = ""
+    # Robust path resolution for tommyskaraoke.exe
+    $tommyskaraokeExe = ""
     $exePaths = @(
-        (Get-Command pikaraoke -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source),
-        (Join-Path $env:LOCALAPPDATA "uv\bin\pikaraoke.exe"),
-        (Join-Path $HOME ".local\bin\pikaraoke.exe") # uv also uses this on some setups
+        (Get-Command tommyskaraoke -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source),
+        (Join-Path $env:LOCALAPPDATA "uv\bin\tommyskaraoke.exe"),
+        (Join-Path $HOME ".local\bin\tommyskaraoke.exe") # uv also uses this on some setups
     )
-    foreach ($p in $exePaths) { if ($p -and (Test-Path $p)) { $pikaraokeExe = $p; break } }
+    foreach ($p in $exePaths) { if ($p -and (Test-Path $p)) { $tommyskaraokeExe = $p; break } }
 
-    if ($pikaraokeExe) {
+    if ($tommyskaraokeExe) {
         $WScriptShell = New-Object -ComObject WScript.Shell
 
         # Download Icon from GitHub once if needed
-        $iconPath = Join-Path ([System.IO.Path]::GetDirectoryName($pikaraokeExe)) "logo.ico"
+        $iconPath = Join-Path ([System.IO.Path]::GetDirectoryName($tommyskaraokeExe)) "logo.ico"
         $iconFound = $false
         try {
-            $iconUrl = "https://raw.githubusercontent.com/vicwomg/pikaraoke/refs/heads/master/pikaraoke/static/icons/logo.ico"
+            $iconUrl = "https://raw.githubusercontent.com/tomm3hgunn/TommysKaraoke/refs/heads/master/tommyskaraoke/static/icons/logo.ico"
             if (!(Test-Path $iconPath)) {
                 Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -ErrorAction Stop
             }
@@ -131,17 +131,17 @@ try {
 
         # Create multiple shortcuts
         $shortcutConfigs = @(
-            @{ Name = "PiKaraoke"; Args = "" },
-            @{ Name = "PiKaraoke (headless)"; Args = "--headless" }
+            @{ Name = "TommysKaraoke"; Args = "" },
+            @{ Name = "TommysKaraoke (headless)"; Args = "--headless" }
         )
 
         foreach ($config in $shortcutConfigs) {
             $sName = $config.Name
             $shortcutPath = Join-Path $desktopPath "$sName.lnk"
             $shortcut = $WScriptShell.CreateShortcut($shortcutPath)
-            $shortcut.TargetPath = $pikaraokeExe
+            $shortcut.TargetPath = $tommyskaraokeExe
             $shortcut.Arguments = $config.Args
-            $shortcut.WorkingDirectory = [System.IO.Path]::GetDirectoryName($pikaraokeExe)
+            $shortcut.WorkingDirectory = [System.IO.Path]::GetDirectoryName($tommyskaraokeExe)
             if ($iconFound) {
                 $shortcut.IconLocation = "$iconPath,0"
             }
@@ -149,7 +149,7 @@ try {
             Write-Host "Created shortcut: $sName" -ForegroundColor Green
         }
     } else {
-        Write-Host "Could not find pikaraoke.exe to create shortcuts." -ForegroundColor Red
+        Write-Host "Could not find tommyskaraoke.exe to create shortcuts." -ForegroundColor Red
     }
 } catch {
     Write-Host "Failed to create desktop shortcuts: $($_.Exception.Message)" -ForegroundColor Red
@@ -158,6 +158,6 @@ try {
 Write-Host "`n--------------------------------------------------------" -ForegroundColor Green
 Write-Host "Installation complete!" -ForegroundColor Green
 Write-Host "Please restart your terminal (PowerShell) to ensure all PATH changes are loaded."
-Write-Host "Then, simply run: `pikaraoke` or launch PiKaraoke from the desktop shortcuts."
-Write-Host "`nTIP: Put your karaoke files in: $(Join-Path $HOME 'pikaraoke-songs')" -ForegroundColor Cyan
+Write-Host "Then, simply run: `tommyskaraoke` or launch TommysKaraoke from the desktop shortcuts."
+Write-Host "`nTIP: Put your karaoke files in: $(Join-Path $HOME 'tommyskaraoke-songs')" -ForegroundColor Cyan
 Write-Host "--------------------------------------------------------"

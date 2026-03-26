@@ -4,9 +4,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pikaraoke.lib.events import EventSystem
-from pikaraoke.lib.playback_controller import PlaybackController, PlaybackResult
-from pikaraoke.lib.preference_manager import PreferenceManager
+from tommyskaraoke.lib.events import EventSystem
+from tommyskaraoke.lib.playback_controller import PlaybackController, PlaybackResult
+from tommyskaraoke.lib.preference_manager import PreferenceManager
 
 
 @pytest.fixture
@@ -67,7 +67,7 @@ class TestPlaybackControllerInit:
 class TestPlaybackControllerPlayFile:
     """Tests for PlaybackController.play_file method."""
 
-    @patch("pikaraoke.lib.playback_controller.time.sleep")
+    @patch("tommyskaraoke.lib.playback_controller.time.sleep")
     def test_play_file_success(self, mock_sleep, test_prefs):
         """Test successful playback."""
         events = EventSystem()
@@ -153,8 +153,8 @@ class TestPlaybackControllerStartSong:
 class TestPlaybackControllerEndSong:
     """Tests for PlaybackController.end_song method."""
 
-    @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("tommyskaraoke.lib.playback_controller.time.sleep")
+    @patch("tommyskaraoke.lib.playback_controller.delete_tmp_dir")
     def test_end_song_cleans_up(self, mock_delete, mock_sleep, test_prefs):
         """Test that end_song cleans up resources."""
         events = EventSystem()
@@ -182,8 +182,8 @@ class TestPlaybackControllerEndSong:
 class TestPlaybackControllerSkip:
     """Tests for PlaybackController.skip method."""
 
-    @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("tommyskaraoke.lib.playback_controller.time.sleep")
+    @patch("tommyskaraoke.lib.playback_controller.delete_tmp_dir")
     @patch("flask_babel._", side_effect=lambda x: x)
     def test_skip_when_playing(self, mock_gettext, mock_delete, mock_sleep, test_prefs):
         """Test skip when a song is playing."""

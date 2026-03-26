@@ -14,7 +14,7 @@
 <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
 	<div class="glass w-full max-w-md p-8 text-center">
 		<h1 class="gradient-text mb-2 text-3xl font-bold" style="font-family: var(--font-display)">
-			HomeKaraoke
+			TommysKaraoke
 		</h1>
 		<p class="mb-6 text-sm" style="color: var(--color-dim)">
 			{#if socketOk}

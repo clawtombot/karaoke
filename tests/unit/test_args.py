@@ -2,7 +2,7 @@
 
 import pytest
 
-from pikaraoke.lib.args import arg_path_parse, parse_volume
+from tommyskaraoke.lib.args import arg_path_parse, parse_tommyskaraoke_args, parse_volume
 
 
 class TestArgPathParse:
@@ -75,3 +75,43 @@ class TestParseVolume:
         """Test that decimal precision is preserved."""
         result = parse_volume("0.333", "test volume")
         assert result == 0.333
+
+
+class TestSplitterEnvConfig:
+    """Tests for env-driven splitter configuration."""
+
+    def test_splitter_defaults_to_disabled(self, monkeypatch):
+        """Test that the splitter stays off without explicit config."""
+        monkeypatch.delenv("TOMMYSKARAOKE_VOCAL_SPLITTER", raising=False)
+        monkeypatch.delenv("TOMMYSKARAOKE_SEPARATION_BACKEND", raising=False)
+        monkeypatch.delenv("TOMMYSKARAOKE_SEPARATION_DEVICE", raising=False)
+        monkeypatch.delenv("TOMMYSKARAOKE_SEPARATION_MODEL", raising=False)
+        monkeypatch.delenv("TOMMYSKARAOKE_VOCAL_SPLIT_MODEL", raising=False)
+        monkeypatch.setattr("sys.argv", ["tommyskaraoke"])
+
+        args = parse_tommyskaraoke_args()
+
+        assert args.vocal_splitter is False
+        assert args.separation_backend is None
+        assert args.separation_device is None
+        assert args.separation_model is None
+        assert args.vocal_split_model is None
+
+    def test_splitter_reads_explicit_env_config(self, monkeypatch):
+        """Test that splitter config can be supplied via env vars."""
+        monkeypatch.setenv("TOMMYSKARAOKE_VOCAL_SPLITTER", "true")
+        monkeypatch.setenv("TOMMYSKARAOKE_SEPARATION_BACKEND", "demucs")
+        monkeypatch.setenv("TOMMYSKARAOKE_SEPARATION_DEVICE", "cuda")
+        monkeypatch.setenv("TOMMYSKARAOKE_SEPARATION_MODEL", "htdemucs_6s")
+        monkeypatch.setenv("TOMMYSKARAOKE_VOCAL_SPLIT_MODEL", "UVR-BVE-4B_SN-44100-1.pth")
+        monkeypatch.setenv("TOMMYSKARAOKE_MODEL_CACHE_DIR", "~/models")
+        monkeypatch.setattr("sys.argv", ["tommyskaraoke"])
+
+        args = parse_tommyskaraoke_args()
+
+        assert args.vocal_splitter is True
+        assert args.separation_backend == "demucs"
+        assert args.separation_device == "cuda"
+        assert args.separation_model == "htdemucs_6s"
+        assert args.vocal_split_model == "UVR-BVE-4B_SN-44100-1.pth"
+        assert args.model_cache_dir == "~/models"

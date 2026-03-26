@@ -3,7 +3,7 @@
 
 import pytest
 
-from pikaraoke.lib.song_list import SongList
+from tommyskaraoke.lib.song_list import SongList
 
 
 class TestSongListBasicOperations:

@@ -245,7 +245,7 @@
 </script>
 
 <svelte:head>
-	<title>HomeKaraoke — Browse</title>
+	<title>TommysKaraoke — Browse</title>
 </svelte:head>
 
 <div class="relative z-10 min-h-screen pb-20">

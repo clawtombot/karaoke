@@ -8,9 +8,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pikaraoke.lib.events import EventSystem
-from pikaraoke.lib.playback_controller import PlaybackController, PlaybackResult
-from pikaraoke.lib.preference_manager import PreferenceManager
+from tommyskaraoke.lib.events import EventSystem
+from tommyskaraoke.lib.playback_controller import PlaybackController, PlaybackResult
+from tommyskaraoke.lib.preference_manager import PreferenceManager
 
 
 @pytest.fixture
@@ -96,8 +96,8 @@ class TestPauseEventOrdering:
 class TestSkipEventSequence:
     """Skip must produce a clean transition: song_ended (null state) then playback_started (new state)."""
 
-    @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("tommyskaraoke.lib.playback_controller.time.sleep")
+    @patch("tommyskaraoke.lib.playback_controller.delete_tmp_dir")
     @patch("flask_babel._", side_effect=lambda x: x)
     def test_skip_resets_state_before_song_ended(self, mock_gettext, mock_delete, mock_sleep, pc, events):
         """song_ended event must see null now_playing (state already reset)."""
@@ -114,8 +114,8 @@ class TestSkipEventSequence:
         assert observed_state["is_paused"] is True
         assert observed_state["now_playing_url"] is None
 
-    @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("tommyskaraoke.lib.playback_controller.time.sleep")
+    @patch("tommyskaraoke.lib.playback_controller.delete_tmp_dir")
     @patch("flask_babel._", side_effect=lambda x: x)
     def test_skip_sets_is_playing_false(self, mock_gettext, mock_delete, mock_sleep, pc, events):
         """After skip, is_playing must be False so the run loop can pick up the next song."""
@@ -123,8 +123,8 @@ class TestSkipEventSequence:
         pc.skip()
         assert pc.is_playing is False
 
-    @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("tommyskaraoke.lib.playback_controller.time.sleep")
+    @patch("tommyskaraoke.lib.playback_controller.delete_tmp_dir")
     @patch("flask_babel._", side_effect=lambda x: x)
     def test_song_end_then_new_song_produces_distinct_states(
         self, mock_gettext, mock_delete, mock_sleep, pc, events
@@ -210,8 +210,8 @@ class TestSongTransitionCleanup:
     loaded because the URL-change effect didn't call stemMixer.teardown().
     """
 
-    @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("tommyskaraoke.lib.playback_controller.time.sleep")
+    @patch("tommyskaraoke.lib.playback_controller.delete_tmp_dir")
     @patch("flask_babel._", side_effect=lambda x: x)
     def test_end_song_resets_all_playback_fields(self, mock_gettext, mock_delete, mock_sleep, pc, events):
         """end_song must reset all fields — no leftover state from previous song."""
@@ -224,16 +224,16 @@ class TestSongTransitionCleanup:
         assert state["now_playing_position"] is None
         assert state["is_paused"] is True
 
-    @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("tommyskaraoke.lib.playback_controller.time.sleep")
+    @patch("tommyskaraoke.lib.playback_controller.delete_tmp_dir")
     @patch("flask_babel._", side_effect=lambda x: x)
     def test_end_song_kills_ffmpeg(self, mock_gettext, mock_delete, mock_sleep, pc, events):
         """end_song must kill ffmpeg to release the stream."""
         pc.end_song()
         pc.stream_manager.kill_ffmpeg.assert_called_once()
 
-    @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("tommyskaraoke.lib.playback_controller.time.sleep")
+    @patch("tommyskaraoke.lib.playback_controller.delete_tmp_dir")
     def test_new_song_after_end_has_fresh_state(self, mock_delete, mock_sleep, pc, events):
         """Playing a new song after end must have completely fresh state."""
         pc.end_song()
@@ -265,8 +265,8 @@ class TestStartSongIdempotency:
         pc.start_song()
         assert pc.is_playing is True
 
-    @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("tommyskaraoke.lib.playback_controller.time.sleep")
+    @patch("tommyskaraoke.lib.playback_controller.delete_tmp_dir")
     def test_start_song_ignored_after_end(self, mock_delete, mock_sleep, pc, events):
         """start_song after end_song must not resurrect the song.
 

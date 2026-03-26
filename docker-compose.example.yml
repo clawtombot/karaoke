@@ -1,0 +1,24 @@
+services:
+  tommyskaraoke:
+    build:
+      context: .
+      dockerfile: build_scripts/docker/Dockerfile
+      args:
+        BASE_PATH: ''
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu124
+        INSTALL_SEPARATION_DEPS: '1'
+    ports:
+      - '5555:5555'
+    environment:
+      BASE_PATH: ''
+      TOMMYSKARAOKE_VOCAL_SPLITTER: 'true'
+      TOMMYSKARAOKE_SEPARATION_BACKEND: demucs
+      TOMMYSKARAOKE_SEPARATION_DEVICE: cuda
+      TOMMYSKARAOKE_SEPARATION_MODEL: htdemucs_6s
+      TOMMYSKARAOKE_VOCAL_SPLIT_MODEL: UVR-BVE-4B_SN-44100-1.pth
+      TOMMYSKARAOKE_MODEL_CACHE_DIR: /models
+    volumes:
+      - ./data/songs:/app/tommyskaraoke-songs
+      - ./data/config:/home/tommyskaraoke/.tommyskaraoke
+      - ./data/models:/models
+    restart: unless-stopped

@@ -7,7 +7,7 @@
 	import { api } from '$lib/api';
 
 	interface SystemInfo {
-		pikaraoke_version: string;
+		tommyskaraoke_version: string;
 		platform: string;
 		os_version: string;
 		ffmpeg_version: string;
@@ -191,7 +191,7 @@
 </script>
 
 <svelte:head>
-	<title>HomeKaraoke — Settings</title>
+	<title>TommysKaraoke — Settings</title>
 </svelte:head>
 
 <div class="relative z-10 min-h-screen p-4 pb-20">
@@ -221,7 +221,7 @@
 			<div class="info-grid">
 				<div class="info-item">
 					<span class="info-label">Version</span>
-					<span class="info-value">{info.pikaraoke_version}</span>
+					<span class="info-value">{info.tommyskaraoke_version}</span>
 				</div>
 				<div class="info-item">
 					<span class="info-label">Platform</span>

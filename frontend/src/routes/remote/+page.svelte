@@ -271,7 +271,7 @@
 	});
 </script>
 
-<svelte:head><title>Remote — HomeKaraoke</title></svelte:head>
+<svelte:head><title>Remote — TommysKaraoke</title></svelte:head>
 
 <div class="remote-root">
 	{#if np.now_playing}

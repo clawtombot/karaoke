@@ -1,8 +1,8 @@
-# HomeKaraoke Complete Redesign Plan
+# TommysKaraoke Complete Redesign Plan
 
 ## Context
 
-HomeKaraoke (PiKaraoke fork v1.19.0) is a self-hosted karaoke system with a Python/Flask backend, jQuery frontend, and WebSocket-based real-time communication. Full rewrite to professional-grade karaoke experience inspired by Apple Music Sing, YouTube Karaoke, Spotify, KaraFun, and SingStar.
+TommysKaraoke (TommysKaraoke fork v1.19.0) is a self-hosted karaoke system with a Python/Flask backend, jQuery frontend, and WebSocket-based real-time communication. Full rewrite to professional-grade karaoke experience inspired by Apple Music Sing, YouTube Karaoke, Spotify, KaraFun, and SingStar.
 
 Four interconnected goals:
 1. **Backend modernization** — Flask + gevent → FastAPI + uvicorn (native async, no monkey-patching)
@@ -127,7 +127,7 @@ frontend/
 | `karaoke-gen` | No | Yes | Yes | No | Very active (v0.147) |
 | **Custom (our approach)** | **Yes (EAPI + YRC)** | **Yes** | **Fallback** | **Yes** | — |
 
-**Decision**: Build a custom `pikaraoke/lib/lyrics/` module because:
+**Decision**: Build a custom `tommyskaraoke/lib/lyrics/` module because:
 - No single library combines NetEase YRC + LRCLIB + romanization
 - LDDC is a Qt desktop app — extractable but messy
 - `syncedlyrics` is stale and doesn't fetch YRC word-level data
@@ -200,7 +200,7 @@ def estimate_word_timing(line_start_ms, line_end_ms, text):
 
 ### Backend Modules
 ```
-pikaraoke/lib/lyrics/
+tommyskaraoke/lib/lyrics/
     __init__.py
     manager.py          # LyricsManager — orchestrates sources, caching
     models.py           # LyricsLine, LyricsWord, SongLyrics dataclasses
@@ -212,13 +212,13 @@ pikaraoke/lib/lyrics/
     romanizer.py        # CJK romanization (pykakasi, pypinyin)
     cache.py            # JSON file cache in data/lyrics/
 
-pikaraoke/lib/pitch/
+tommyskaraoke/lib/pitch/
     __init__.py
     extractor.py        # Offline: vocal stem → pitch_data.json (CREPE/pYIN)
     models.py           # PitchNote dataclass
 
-pikaraoke/routes/lyrics.py   # /api/lyrics/<stream_uid>, /api/lyrics/search, /api/lyrics/offset
-pikaraoke/routes/pitch.py    # /api/pitch/<stream_uid> — serve precomputed pitch JSON
+tommyskaraoke/routes/lyrics.py   # /api/lyrics/<stream_uid>, /api/lyrics/search, /api/lyrics/offset
+tommyskaraoke/routes/pitch.py    # /api/pitch/<stream_uid> — serve precomputed pitch JSON
 ```
 
 ---
@@ -557,15 +557,15 @@ Everything ships as one integrated phase. No half-migrations. Build the complete
 - **Verify**: uvicorn starts, /api/now returns JSON, Socket.IO connects
 
 **0b. Lyrics Backend**
-- Build pikaraoke/lib/lyrics/ module (NetEase EAPI + LRCLIB + YRC parser + romanizer + cache)
-- Build pikaraoke/routes/lyrics.py API router
+- Build tommyskaraoke/lib/lyrics/ module (NetEase EAPI + LRCLIB + YRC parser + romanizer + cache)
+- Build tommyskaraoke/routes/lyrics.py API router
 - Extend PlaybackController with lyrics URL in now-playing state
 - **Verify**: /api/lyrics/{stream_uid} returns word-timed JSON with romanization
 
 **0c. Pitch Extraction Pipeline**
 - Add torchcrepe to stem splitter worker (runs after demucs via run_in_executor)
-- Build pikaraoke/lib/pitch/extractor.py (vocal.wav to pitch_data.json)
-- Build pikaraoke/routes/pitch.py API router
+- Build tommyskaraoke/lib/pitch/extractor.py (vocal.wav to pitch_data.json)
+- Build tommyskaraoke/routes/pitch.py API router
 - **Verify**: /api/pitch/{stream_uid} returns precomputed pitch contour
 
 **0d. Svelte Frontend Scaffold**
@@ -627,7 +627,7 @@ Everything ships as one integrated phase. No half-migrations. Build the complete
 cd frontend && npm run build                    # Svelte -> dist/
 cd .. && uv run pytest                           # Python tests
 uv run pre-commit run --all-files                # Code quality
-uvicorn pikaraoke.app:combined --port 5555       # Manual test at http://localhost:5555
+uvicorn tommyskaraoke.app:combined --port 5555       # Manual test at http://localhost:5555
 ```
 
 ---

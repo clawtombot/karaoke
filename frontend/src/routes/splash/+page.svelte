@@ -513,7 +513,7 @@
 </script>
 
 <svelte:head>
-	<title>HomeKaraoke — TV</title>
+	<title>TommysKaraoke — TV</title>
 </svelte:head>
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -630,7 +630,7 @@
 	<!-- Logo (when idle) -->
 	{#if !np.now_playing}
 		<div class="logo-container">
-			<h1 class="gradient-text logo-text">HomeKaraoke</h1>
+			<h1 class="gradient-text logo-text">TommysKaraoke</h1>
 		</div>
 	{/if}
 </div>

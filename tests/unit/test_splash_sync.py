@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from pikaraoke.routes_fastapi.socket_events import setup_socket_events
+from tommyskaraoke.routes_fastapi.socket_events import setup_socket_events
 
 
 def run(coro):
@@ -19,7 +19,7 @@ def run(coro):
 @pytest.fixture(autouse=True)
 def reset_splash_state():
     """Reset module-level splash state between tests."""
-    import pikaraoke.routes_fastapi.socket_events as mod
+    import tommyskaraoke.routes_fastapi.socket_events as mod
 
     mod.splash_connections.clear()
     mod.master_splash_id = None
@@ -53,7 +53,7 @@ def karaoke_mock():
     mock_k = MagicMock()
     mock_k.playback_controller = MagicMock()
     mock_k.playback_controller.now_playing_position = 0
-    with patch("pikaraoke.routes_fastapi.socket_events.get_karaoke", return_value=mock_k):
+    with patch("tommyskaraoke.routes_fastapi.socket_events.get_karaoke", return_value=mock_k):
         yield mock_k
 
 

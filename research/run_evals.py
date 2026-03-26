@@ -212,7 +212,7 @@ log("A26", "gevent-websocket installed", True, "Check app log for RuntimeError a
 
 try:
     import subprocess
-    log_tail = subprocess.run(["tail", "-50", "/tmp/pikaraoke.log"], capture_output=True, text=True).stdout
+    log_tail = subprocess.run(["tail", "-50", "/tmp/tommyskaraoke.log"], capture_output=True, text=True).stdout
     no_ws_error = "gevent-websocket server is not configured" not in log_tail
     log("A26", "No WebSocket 500 in log", no_ws_error,
         "CLEAN" if no_ws_error else "FOUND gevent-websocket error")

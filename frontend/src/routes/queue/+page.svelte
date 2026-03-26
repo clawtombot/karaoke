@@ -170,7 +170,7 @@
 </script>
 
 <svelte:head>
-	<title>HomeKaraoke — Queue</title>
+	<title>TommysKaraoke — Queue</title>
 </svelte:head>
 
 <div class="relative z-10 min-h-screen p-4 pb-24">

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pikaraoke.lib.song_manager import SongManager
+from tommyskaraoke.lib.song_manager import SongManager
 
 
 def _native(path: Path) -> str:
