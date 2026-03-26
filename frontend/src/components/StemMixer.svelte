@@ -90,7 +90,7 @@
 	}
 </script>
 
-{#if np.vocal_splitter_enabled}
+{#if np.stem_separation_enabled}
 	<div class="mixer" class:compact>
 		{#if np.stems_available}
 			<div class="presets">

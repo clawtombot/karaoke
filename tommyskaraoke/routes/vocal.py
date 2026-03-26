@@ -24,8 +24,8 @@ def stem_debug(msg: str):
 def stem_toggle(stem: str):
     """Toggle a stem on/off in the mix."""
     k = get_karaoke_instance()
-    if not k.vocal_splitter_enabled:
-        return jsonify({"error": "Stem splitter not enabled"}), 400
+    if not k.stem_separation_enabled:
+        return jsonify({"error": "Stem separation not enabled"}), 400
     if not k.toggle_stem(stem):
         return jsonify({"error": f"Invalid stem: {stem}"}), 400
     return jsonify({"stem_mix": k.stem_mix})
@@ -37,7 +37,7 @@ def get_stem_mix():
     k = get_karaoke_instance()
     return jsonify(
         {
-            "vocal_splitter_enabled": k.vocal_splitter_enabled,
+            "stem_separation_enabled": k.stem_separation_enabled,
             "stem_mix": k.stem_mix,
         }
     )

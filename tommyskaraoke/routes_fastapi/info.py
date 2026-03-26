@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from tommyskaraoke import VERSION
-from tommyskaraoke.constants import LANGUAGES
+from tommyskaraoke.constants import LANGUAGES, get_stem_separation_options
 from tommyskaraoke.lib.dependencies import get_admin_password, get_karaoke, get_site_name
 from tommyskaraoke.lib.get_platform import get_platform
 
@@ -67,6 +67,15 @@ async def info(request: Request):
         "languages": LANGUAGES,
         "preferred_language": preferred_language,
         "browse_results_per_page": k.browse_results_per_page,
+        "stem_separation": {
+            "enabled": k.stem_separation_enabled,
+            "backend": k.separation_backend,
+            "device": k.separation_device,
+            "model": k.separation_model,
+            "vocal_model": k.vocal_split_model,
+            "model_cache_dir": k.model_cache_dir,
+            "options": get_stem_separation_options(),
+        },
         "score_phrases": {
             "low": k.low_score_phrases,
             "mid": k.mid_score_phrases,

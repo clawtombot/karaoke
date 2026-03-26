@@ -212,6 +212,17 @@ def test_preference_manager_persistence(temp_config_file):
     assert result == "persistent_value"
 
 
+def test_preference_manager_migrates_legacy_stem_key(temp_config_file):
+    """Test that the old stem toggle key migrates to the new generalized name."""
+    with open(temp_config_file, "w", encoding="utf-8") as conf:
+        conf.write("[USERPREFERENCES]\nvocal_splitter_enabled = True\n")
+
+    prefs = PreferenceManager(temp_config_file)
+
+    assert prefs.get_or_default("stem_separation_enabled") is True
+    assert prefs.get("vocal_splitter_enabled") is None
+
+
 def test_preference_manager_empty_string_value(temp_config_file):
     """Test that empty strings are handled correctly."""
     prefs = PreferenceManager(temp_config_file)
@@ -284,6 +295,12 @@ def test_preference_manager_defaults_exist():
         "mid_score_phrases",
         "high_score_phrases",
         "show_splash_clock",
+        "stem_separation_enabled",
+        "separation_backend",
+        "separation_device",
+        "separation_model",
+        "vocal_split_model",
+        "model_cache_dir",
     }
 
     assert set(PreferenceManager.DEFAULTS.keys()) == expected_keys
@@ -305,6 +322,7 @@ def test_preference_manager_defaults_types():
     assert isinstance(defaults["disable_score"], bool)
     assert isinstance(defaults["enable_fair_queue"], bool)
     assert isinstance(defaults["cdg_pixel_scaling"], bool)
+    assert isinstance(defaults["stem_separation_enabled"], bool)
 
     # Integer preferences
     assert isinstance(defaults["splash_delay"], int)
@@ -321,6 +339,11 @@ def test_preference_manager_defaults_types():
     assert isinstance(defaults["low_score_phrases"], str)
     assert isinstance(defaults["mid_score_phrases"], str)
     assert isinstance(defaults["high_score_phrases"], str)
+    assert isinstance(defaults["separation_backend"], str)
+    assert isinstance(defaults["separation_device"], str)
+    assert isinstance(defaults["separation_model"], str)
+    assert isinstance(defaults["vocal_split_model"], str)
+    assert isinstance(defaults["model_cache_dir"], str)
 
 
 def test_preference_manager_get_or_default_returns_default(temp_config_file):

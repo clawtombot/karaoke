@@ -16,7 +16,7 @@ export interface NowPlaying {
 	up_next: string | null;
 	next_user: string | null;
 	volume: number;
-	vocal_splitter_enabled: boolean;
+	stem_separation_enabled: boolean;
 	stems_available: boolean;
 	stem_urls: Record<string, string> | null;
 	stem_mix: Record<string, boolean>;
@@ -37,7 +37,7 @@ const DEFAULT_STATE: NowPlaying = {
 	up_next: null,
 	next_user: null,
 	volume: 0.85,
-	vocal_splitter_enabled: false,
+	stem_separation_enabled: false,
 	stems_available: false,
 	stem_urls: null,
 	stem_mix: {},

@@ -68,9 +68,14 @@ class Karaoke:
     volume: float
 
     # Stem splitter state
-    vocal_splitter_enabled: bool = False
+    stem_separation_enabled: bool = False
     _vocal_worker: subprocess.Popen | None = None
     separation_config: SeparationConfig | None = None
+    separation_backend: str = ""
+    separation_device: str = ""
+    separation_model: str = ""
+    vocal_split_model: str = ""
+    model_cache_dir: str = ""
 
     qr_code_path: str | None = None
     base_path: str = os.path.dirname(__file__)
@@ -212,6 +217,7 @@ class Karaoke:
 
         # Load all preference-driven attributes from config (with CLI overrides as fallback)
         cli_args = {k: v for k, v in locals().items() if k != "self"}
+        cli_args["stem_separation_enabled"] = vocal_splitter
         self._load_preferences(**cli_args)
 
         # Log the settings to debug level
@@ -270,16 +276,8 @@ class Karaoke:
         # Stem splitter setup
         self.boot_id = str(int(time.time()))
         self.stem_mix: dict[str, float] = {s: 1.0 for s in ALL_STEM_NAMES}
-        if vocal_splitter:
-            self.separation_config = resolve_separation_config(
-                enabled=True,
-                backend=separation_backend,
-                model=separation_model,
-                vocal_split_model=vocal_split_model,
-                device=separation_device,
-                model_cache_dir=model_cache_dir,
-            )
-            self._init_stem_splitter(self.separation_config)
+        if self.stem_separation_enabled:
+            self.reload_stem_splitter()
 
     def _init_stem_splitter(self, config: SeparationConfig) -> None:
         """Set up 6-stem splitting: create output dir and launch the worker process."""
@@ -311,11 +309,42 @@ class Karaoke:
             cmd,
             env={**os.environ, **apply_model_cache_env(config.model_cache_dir)},
         )
-        self.vocal_splitter_enabled = True
+        self.stem_separation_enabled = True
+
+    def _stop_stem_splitter(self) -> None:
+        """Stop the background stem splitter worker if it is running."""
+        if self._vocal_worker is None:
+            return
+
+        self._vocal_worker.terminate()
+        try:
+            self._vocal_worker.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self._vocal_worker.kill()
+        self._vocal_worker = None
+
+    def reload_stem_splitter(self) -> None:
+        """Apply the current persisted stem separation settings to the worker."""
+        self._stop_stem_splitter()
+        self.separation_config = resolve_separation_config(
+            enabled=self.stem_separation_enabled,
+            backend=self.separation_backend or None,
+            model=self.separation_model or None,
+            vocal_split_model=self.vocal_split_model or None,
+            device=self.separation_device or None,
+            model_cache_dir=self.model_cache_dir or None,
+        )
+        if self.separation_config is None:
+            self.stem_separation_enabled = False
+            self.update_now_playing_socket()
+            return
+
+        self._init_stem_splitter(self.separation_config)
+        self.update_now_playing_socket()
 
     def get_stem_paths(self, file_path: str) -> dict[str, str] | None:
         """Return dict of stem_name -> M4A path if all stems are ready, else None."""
-        if not self.vocal_splitter_enabled:
+        if not self.stem_separation_enabled:
             return None
 
         basename = os.path.basename(file_path)
@@ -532,13 +561,7 @@ class Karaoke:
     def stop(self) -> None:
         """Stop the karaoke run loop and clean up subprocesses."""
         self.running = False
-        if getattr(self, "_vocal_worker", None):
-            self._vocal_worker.terminate()
-            try:
-                self._vocal_worker.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self._vocal_worker.kill()
-            self._vocal_worker = None
+        self._stop_stem_splitter()
 
     def handle_run_loop(self) -> None:
         """Handle one iteration of the main run loop with a sleep interval."""
@@ -554,7 +577,7 @@ class Karaoke:
         When the splitter is enabled, a song is only ready once all 6
         stems exist. This prevents playback before splitting completes.
         """
-        if not self.vocal_splitter_enabled:
+        if not self.stem_separation_enabled:
             return True
         basename = os.path.basename(song_path)
         stem_dir = os.path.join(self.download_path, STEMS_SUBDIR, basename)
@@ -585,7 +608,7 @@ class Karaoke:
         stems_available = False
         stem_progress = None  # {ready: N, total: 6, error: bool}
         now_file = self.playback_controller.now_playing_filename
-        if self.vocal_splitter_enabled and now_file:
+        if self.stem_separation_enabled and now_file:
             cache = getattr(self, "_stem_url_cache", (None, None, None))
             if cache[0] == now_file and cache[1] is not None:
                 stems_available, stem_urls = cache[1], cache[2]
@@ -631,7 +654,7 @@ class Karaoke:
             "up_next": next_song["title"] if next_song else None,
             "next_user": next_song["user"] if next_song else None,
             "volume": self.volume,
-            "vocal_splitter_enabled": self.vocal_splitter_enabled,
+            "stem_separation_enabled": self.stem_separation_enabled,
             "stems_available": stems_available,
             "stem_urls": stem_urls,
             "stem_mix": self.stem_mix,

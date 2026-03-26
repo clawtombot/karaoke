@@ -6,6 +6,27 @@
 	import { base } from '$app/paths';
 	import { api } from '$lib/api';
 
+	interface SelectOption {
+		value: string;
+		label: string;
+		description: string;
+	}
+
+	interface StemSeparationInfo {
+		enabled: boolean;
+		backend: string;
+		device: string;
+		model: string;
+		vocal_model: string;
+		model_cache_dir: string;
+		options: {
+			backends: SelectOption[];
+			devices: Record<string, SelectOption[]>;
+			models: SelectOption[];
+			vocal_models: SelectOption[];
+		};
+	}
+
 	interface SystemInfo {
 		tommyskaraoke_version: string;
 		platform: string;
@@ -40,6 +61,7 @@
 		// Other
 		url: string;
 		is_transpose_enabled: boolean;
+		stem_separation: StemSeparationInfo;
 	}
 
 	interface SystemStats {
@@ -112,14 +134,19 @@
 	async function changePref(key: string, val: string | boolean | number) {
 		try {
 			const res = await fetch(api(`/change_preferences?pref=${encodeURIComponent(key)}&val=${encodeURIComponent(String(val))}`));
-			if (res.ok) {
+			const payload = await res.json().catch(() => null);
+			const success = res.ok && (!Array.isArray(payload) || payload[0] !== false) && payload?.ok !== false;
+			if (success) {
 				showToast(`Updated: ${key.replace(/_/g, ' ')}`);
 				// Update local state
-				if (info) (info as any)[key] = typeof val === 'string' ? val : val;
+				if (info && key in info) (info as any)[key] = val;
+				return true;
 			}
+			showToast(Array.isArray(payload) ? payload[1] : (payload?.error ?? 'Failed to update preference'));
 		} catch {
 			showToast('Failed to update preference');
 		}
+		return false;
 	}
 
 	function toggleBool(key: string) {
@@ -132,6 +159,16 @@
 	function onNumChange(key: string, e: Event) {
 		const val = (e.target as HTMLInputElement).value;
 		changePref(key, val);
+	}
+
+	function stemDeviceOptions() {
+		if (!info) return [];
+		return info.stem_separation.options.devices[info.stem_separation.backend] ?? [];
+	}
+
+	async function setStemPref(key: string, val: string | boolean) {
+		const ok = await changePref(key, val);
+		if (ok) await fetchInfo();
 	}
 
 	function requestConfirm(action: string) {
@@ -300,6 +337,105 @@
 			{/each}
 		</section>
 
+		<section class="glass rounded-2xl p-4 mb-4">
+			<h2 class="section-title">Stem Separation</h2>
+			<p class="section-note">
+				Choose the backend and models once for the whole server. Required files download
+				automatically on first use.
+			</p>
+			<div class="toggle-row">
+				<div class="toggle-info">
+					<span class="toggle-label">Enable Stem Separation</span>
+					<span class="toggle-desc">Applies the selected split models to new songs</span>
+				</div>
+				<button
+					class="toggle-switch"
+					class:on={info.stem_separation.enabled}
+					onclick={() => setStemPref('stem_separation_enabled', !info.stem_separation.enabled)}
+					aria-label="Toggle stem separation"
+				>
+					<span class="toggle-knob"></span>
+				</button>
+			</div>
+
+			<div class="select-row">
+				<div class="toggle-info">
+					<span class="toggle-label">First Pass Backend</span>
+					<span class="toggle-desc">Pick the runtime that matches this server</span>
+				</div>
+				<select
+					class="select-input"
+					value={info.stem_separation.backend}
+					onchange={(e) => setStemPref('separation_backend', (e.target as HTMLSelectElement).value)}
+				>
+					<option value="">Select backend</option>
+					{#each info.stem_separation.options.backends as option}
+						<option value={option.value}>{option.label}</option>
+					{/each}
+				</select>
+			</div>
+
+			{#if info.stem_separation.backend === 'demucs'}
+				<div class="select-row">
+					<div class="toggle-info">
+						<span class="toggle-label">Execution Device</span>
+						<span class="toggle-desc">CPU works anywhere, CUDA is best on NVIDIA hosts</span>
+					</div>
+					<select
+						class="select-input"
+						value={info.stem_separation.device}
+						onchange={(e) => setStemPref('separation_device', (e.target as HTMLSelectElement).value)}
+					>
+						<option value="">Select device</option>
+						{#each stemDeviceOptions() as option}
+							<option value={option.value}>{option.label}</option>
+						{/each}
+					</select>
+				</div>
+			{/if}
+
+			<div class="select-row">
+				<div class="toggle-info">
+					<span class="toggle-label">Stem Separation Model</span>
+					<span class="toggle-desc">Primary multistem split used for drums, bass, vocals, and more</span>
+				</div>
+				<select
+					class="select-input"
+					value={info.stem_separation.model}
+					onchange={(e) => setStemPref('separation_model', (e.target as HTMLSelectElement).value)}
+				>
+					<option value="">Select stem model</option>
+					{#each info.stem_separation.options.models as option}
+						<option value={option.value}>{option.label}</option>
+					{/each}
+				</select>
+			</div>
+
+			<div class="select-row">
+				<div class="toggle-info">
+					<span class="toggle-label">Lead and Backing Vocal Model</span>
+					<span class="toggle-desc">Second pass that splits the vocal stem into lead and backing</span>
+				</div>
+				<select
+					class="select-input"
+					value={info.stem_separation.vocal_model}
+					onchange={(e) => setStemPref('vocal_split_model', (e.target as HTMLSelectElement).value)}
+				>
+					<option value="">Select vocal model</option>
+					{#each info.stem_separation.options.vocal_models as option}
+						<option value={option.value}>{option.label}</option>
+					{/each}
+				</select>
+			</div>
+
+			<div class="info-grid mt-3 pt-3" style="border-top: 1px solid var(--color-border)">
+				<div class="info-item">
+					<span class="info-label">Model Cache</span>
+					<span class="info-value text-xs">{info.stem_separation.model_cache_dir || '(default cache)'}</span>
+				</div>
+			</div>
+		</section>
+
 		<!-- Numeric Preferences -->
 		<section class="glass rounded-2xl p-4 mb-4">
 			<h2 class="section-title">Advanced</h2>
@@ -398,6 +534,13 @@
 		margin-bottom: 12px;
 	}
 
+	.section-note {
+		font-size: 0.75rem;
+		line-height: 1.45;
+		color: var(--color-faint);
+		margin-bottom: 12px;
+	}
+
 	.info-grid {
 		display: flex;
 		flex-direction: column;
@@ -472,6 +615,33 @@
 	}
 	.toggle-switch.on .toggle-knob {
 		transform: translateX(18px);
+	}
+
+	.select-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 8px 0;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+	}
+
+	.select-input {
+		width: 150px;
+		max-width: 42%;
+		padding: 7px 10px;
+		border-radius: 10px;
+		border: 1px solid var(--color-border2);
+		background: rgba(255, 255, 255, 0.06);
+		color: var(--color-text);
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		outline: none;
+		flex-shrink: 0;
+	}
+
+	.select-input:focus {
+		border-color: var(--color-purple);
 	}
 
 	/* Numeric inputs */

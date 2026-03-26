@@ -108,7 +108,7 @@
         clearInterval(window._stemPollTimer);
         window._stemPollTimer = null;
       }
-    } else if (np.vocal_splitter_enabled && np.now_playing) {
+    } else if (np.stem_separation_enabled && np.now_playing) {
       $('.pr-stems-ready').hide();
       var pendingEl = $('.pr-stems-pending');
       if (np.stem_progress) {
@@ -386,7 +386,7 @@
         <div class="pr-adjusters pr-controls-area">
           <div>
             <span class="pr-adj-label">{{ _("STEM MIXER") }}</span>
-            {% if vocal_splitter_enabled %}
+            {% if stem_separation_enabled %}
             <div class="pr-stems-ready" style="display:none">
               <div class="pr-stem-grid">
                 <button id="pr-stem-drums"  class="pr-stem-btn active" data-stem="drums"  title="Drums"><i class="ti ti-music"></i> {{ _("Drums") }}</button>

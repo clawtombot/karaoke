@@ -93,7 +93,7 @@ def resolve_separation_config(
         missing.append('vocal_split_model')
     if missing:
         raise ValueError(
-            'Stem splitter is enabled but missing required configuration: '
+            'Stem separation is enabled but missing required configuration: '
             + ', '.join(missing)
         )
 
@@ -122,7 +122,7 @@ def resolve_separation_config(
     if normalized_backend == 'demucs':
         if not device:
             raise ValueError(
-                'Stem splitter backend "demucs" requires separation_device to be set '
+                'Stem separation backend "demucs" requires separation_device to be set '
                 '(cpu or cuda).'
             )
         normalized_device = device.lower()
@@ -135,7 +135,7 @@ def resolve_separation_config(
         lowered_device = device.lower()
         if lowered_device not in {'mps', 'mlx'}:
             raise ValueError(
-                'Stem splitter backend "mlx" does not use separation_device. '
+                'Stem separation backend "mlx" does not use separation_device. '
                 'Omit it, or set it to mps/mlx for clarity.'
             )
 

@@ -75,7 +75,7 @@ log("A01", "App responds to /", r and r.status_code == 200, f"HTTP {r.status_cod
 
 d = np()
 log("A02", "now_playing JSON", bool(d), f"keys: {list(d.keys())[:4]}")
-log("A03", "Vocal splitter enabled", d.get("vocal_splitter_enabled") is True, str(d.get("vocal_splitter_enabled")))
+log("A03", "Vocal splitter enabled", d.get("stem_separation_enabled") is True, str(d.get("stem_separation_enabled")))
 
 # ── B: Download & Playback ─────────────────────────
 section("B: Download & Playback")

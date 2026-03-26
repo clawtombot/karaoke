@@ -175,9 +175,18 @@ def _run_vocal_split(vocals_path: str, stem_dir: str, model: str, model_cache_di
 
         model_config = VOCAL_SPLIT_MODELS.get(model, {"swap": True})
         swap = model_config["swap"]
+        separator_model_dir = None
+        if model_cache_dir:
+            separator_model_dir = os.path.join(model_cache_dir, "audio-separator")
+            os.makedirs(separator_model_dir, exist_ok=True)
 
         logger.info("Running vocal split second pass with %s (swap=%s)...", model, swap)
-        sep = Separator(output_dir=stem_dir, output_format="WAV", log_level=logging.WARNING)
+        sep = Separator(
+            output_dir=stem_dir,
+            output_format="WAV",
+            log_level=logging.WARNING,
+            model_file_dir=separator_model_dir,
+        )
         sep.load_model(model)
         output_files = sep.separate(vocals_path)
 

@@ -45,6 +45,15 @@ class PreferenceManager:
         "mid_score_phrases": "",
         "high_score_phrases": "",
         "show_splash_clock": False,
+        "stem_separation_enabled": False,
+        "separation_backend": "",
+        "separation_device": "",
+        "separation_model": "",
+        "vocal_split_model": "",
+        "model_cache_dir": "",
+    }
+    LEGACY_KEYS = {
+        "stem_separation_enabled": "vocal_splitter_enabled",
     }
 
     def __init__(self, config_file_path: str = "config.ini", target: object | None = None) -> None:
@@ -67,6 +76,8 @@ class PreferenceManager:
         else:
             self.config_file_path = config_file_path
 
+        self._migrate_legacy_preference_keys()
+
         logging.debug(f"Using config file: {self.config_file_path}")
 
     def _migrate_legacy_config(self) -> None:
@@ -82,6 +93,31 @@ class PreferenceManager:
                 shutil.move(legacy_config, new_config_path)
             except OSError as e:
                 logging.error(f"Failed to migrate config file: {e}")
+
+    def _migrate_legacy_preference_keys(self) -> None:
+        """Rename legacy preference keys in-place for backward compatibility."""
+        self._config_obj.read(self.config_file_path, encoding="utf-8")
+        if not self._config_obj.has_section("USERPREFERENCES"):
+            return
+
+        prefs = self._config_obj["USERPREFERENCES"]
+        changed = False
+        for new_key, old_key in self.LEGACY_KEYS.items():
+            if old_key in prefs and new_key not in prefs:
+                prefs[new_key] = prefs[old_key]
+                changed = True
+            if old_key in prefs:
+                del prefs[old_key]
+                changed = True
+
+        if not changed:
+            return
+
+        try:
+            with open(self.config_file_path, "w", encoding="utf-8") as conf:
+                self._config_obj.write(conf)
+        except OSError as e:
+            logging.error(f"Failed to migrate legacy preference keys: {e}")
 
     def get(
         self, preference: str, default_value: Any = None, section: str = "USERPREFERENCES"
@@ -99,6 +135,15 @@ class PreferenceManager:
                 return pref
             return self._convert_value(pref)
         except (configparser.NoOptionError, ValueError):
+            legacy_key = self.LEGACY_KEYS.get(preference)
+            if legacy_key:
+                try:
+                    pref = self._config_obj.get(section, legacy_key)
+                    if isinstance(default_value, str):
+                        return pref
+                    return self._convert_value(pref)
+                except (configparser.NoOptionError, ValueError):
+                    pass
             return default_value
 
     def get_or_default(self, preference: str) -> Any:
@@ -120,6 +165,9 @@ class PreferenceManager:
 
             prefs = self._config_obj[section]
             prefs[preference] = str(val)
+            legacy_key = self.LEGACY_KEYS.get(preference)
+            if legacy_key and legacy_key in prefs:
+                del prefs[legacy_key]
 
             with open(self.config_file_path, "w", encoding="utf-8") as conf:
                 self._config_obj.write(conf)

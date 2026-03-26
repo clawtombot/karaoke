@@ -24,8 +24,8 @@ async def stem_debug(msg: str):
 async def stem_toggle(stem: str):
     """Toggle a stem on/off in the mix."""
     k = get_karaoke()
-    if not k.vocal_splitter_enabled:
-        return JSONResponse({"error": "Stem splitter not enabled"}, status_code=400)
+    if not k.stem_separation_enabled:
+        return JSONResponse({"error": "Stem separation not enabled"}, status_code=400)
     if not k.toggle_stem(stem):
         return JSONResponse({"error": f"Invalid stem: {stem}"}, status_code=400)
     # Broadcast to all clients (splash, remote) so Web Audio mix updates
@@ -39,7 +39,7 @@ async def get_stem_mix():
     """Return current stem mix state."""
     k = get_karaoke()
     return {
-        "vocal_splitter_enabled": k.vocal_splitter_enabled,
+        "stem_separation_enabled": k.stem_separation_enabled,
         "stem_mix": k.stem_mix,
     }
 

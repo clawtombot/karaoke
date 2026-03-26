@@ -417,7 +417,7 @@
 		// Poll for stem availability while DNN is splitting
 		const stemPollInterval = setInterval(() => {
 			if (
-				np.vocal_splitter_enabled &&
+				np.stem_separation_enabled &&
 				!np.stems_available &&
 				np.now_playing_url &&
 				!np.stem_progress?.error

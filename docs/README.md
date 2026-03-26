@@ -108,6 +108,8 @@ The example compose file keeps models out of git by mounting `./data/models` to 
 - `TOMMYSKARAOKE_SEPARATION_MODEL=htdemucs_6s`
 - `TOMMYSKARAOKE_VOCAL_SPLIT_MODEL=<model file name>`
 
+You do not need to manually fetch model weights. The configured Demucs and audio-separator models are downloaded automatically on first use into `TOMMYSKARAOKE_MODEL_CACHE_DIR`.
+
 For a plain `docker run` flow:
 
 ```sh

@@ -26,7 +26,7 @@ def home():
         admin=is_admin(),
         is_transpose_enabled=k.is_transpose_enabled,
         volume=k.volume,
-        vocal_splitter_enabled=k.vocal_splitter_enabled,
+        stem_separation_enabled=k.stem_separation_enabled,
         url=external_url,
         qr_code_url=url_for("images.qrcode"),
     )

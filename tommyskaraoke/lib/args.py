@@ -318,7 +318,7 @@ def parse_tommyskaraoke_args() -> argparse.Namespace:
         required=False,
     )
 
-    # --- Vocal splitter arguments ---
+    # --- Stem separation arguments ---
 
     parser.add_argument(
         "--vocal-splitter",

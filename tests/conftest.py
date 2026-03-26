@@ -89,7 +89,7 @@ class MockKaraoke:
         self.volume = 0.85
         self.running = True
         self.now_playing_notification = None
-        self.vocal_splitter_enabled = False
+        self.stem_separation_enabled = False
         self.stem_mix = {s: 1.0 for s in ALL_STEM_NAMES}
         self.boot_id = "test"
 
