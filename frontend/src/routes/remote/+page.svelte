@@ -99,6 +99,8 @@
 	}
 	let transpose = $state(0);
 	let isSeeking = $state(false);
+	let seekTrackEl: HTMLElement | null = $state(null);
+	let activeSeekPointerId: number | null = $state(null);
 
 	// Client-side time interpolation: sync from server, tick locally between updates
 	let lastServerPos = 0;     // last known server position (seconds)
@@ -204,9 +206,15 @@
 	async function doPause() {
 		if (pausePending) return; // Debounce rapid taps
 		pausePending = true;
-		await fetch(api('/pause'));
-		// Small cooldown to prevent double-toggle
-		setTimeout(() => { pausePending = false; }, 300);
+		const action = np.is_paused ? 'play' : 'pause';
+		try {
+			await fetch(api(`/pause?action=${action}`));
+			await fetchNowPlaying();
+		} finally {
+			setTimeout(() => {
+				pausePending = false;
+			}, 500);
+		}
 	}
 	async function doRestart() { await fetch(api('/restart')); }
 	async function setVolume(e: Event) {
@@ -222,23 +230,36 @@
 	}
 	async function toggleStem(stem: string) { await fetch(api('/stem_toggle/') + stem); }
 
-	function seekStart(e: TouchEvent | MouseEvent) {
-		isSeeking = true;
-		seekMove(e);
-	}
-
-	function seekMove(e: TouchEvent | MouseEvent) {
-		if (!isSeeking || !np.now_playing_duration) return;
-		const track = (e.currentTarget as HTMLElement);
-		const rect = track.getBoundingClientRect();
-		const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+	function updateSeekPreview(clientX: number) {
+		if (!seekTrackEl || !np.now_playing_duration) return;
+		const rect = seekTrackEl.getBoundingClientRect();
 		const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
 		currentTimeMs = ratio * np.now_playing_duration * 1000;
 	}
 
-	async function seekEnd() {
+	function seekStart(e: PointerEvent) {
+		seekTrackEl = e.currentTarget as HTMLElement;
+		activeSeekPointerId = e.pointerId;
+		seekTrackEl.setPointerCapture(e.pointerId);
+		e.preventDefault();
+		isSeeking = true;
+		updateSeekPreview(e.clientX);
+	}
+
+	function seekMove(e: PointerEvent) {
+		if (!isSeeking || activeSeekPointerId !== e.pointerId) return;
+		e.preventDefault();
+		updateSeekPreview(e.clientX);
+	}
+
+	async function seekEnd(e?: PointerEvent) {
 		if (!isSeeking) return;
+		if (e && activeSeekPointerId !== e.pointerId) return;
 		isSeeking = false;
+		if (seekTrackEl && activeSeekPointerId !== null && seekTrackEl.hasPointerCapture(activeSeekPointerId)) {
+			seekTrackEl.releasePointerCapture(activeSeekPointerId);
+		}
+		activeSeekPointerId = null;
 		const pos = currentTimeMs / 1000;
 		// Ignore server sync for 2s so stale position doesn't snap back
 		seekCooldown = performance.now() + 2000;
@@ -252,6 +273,11 @@
 
 	onMount(() => {
 		fetchNowPlaying();
+		const upNextPollInterval = setInterval(() => {
+			if (np.up_next_pending) {
+				fetchNowPlaying();
+			}
+		}, 2000);
 
 		// Start interpolation loop for smooth lyrics scrolling
 		interpolationLoop();
@@ -264,6 +290,10 @@
 				}
 			}),
 		];
+
+		return () => {
+			clearInterval(upNextPollInterval);
+		};
 	});
 	onDestroy(() => {
 		if (rafId) cancelAnimationFrame(rafId);
@@ -280,6 +310,7 @@
 			<div class="up-next">
 				<span class="up-next-label">NEXT</span>
 				<span class="up-next-title">{np.up_next}</span>
+				{#if np.up_next_step}<span class="up-next-stage">{np.up_next_step}</span>{/if}
 				{#if np.next_user}<span class="up-next-singer">{np.next_user}</span>{/if}
 			</div>
 		{/if}
@@ -460,13 +491,10 @@
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class="seek-track"
-			onmousedown={seekStart}
-			onmousemove={seekMove}
-			onmouseup={seekEnd}
-			onmouseleave={seekEnd}
-			ontouchstart={seekStart}
-			ontouchmove={seekMove}
-			ontouchend={seekEnd}
+			onpointerdown={seekStart}
+			onpointermove={seekMove}
+			onpointerup={seekEnd}
+			onpointercancel={seekEnd}
 		>
 			<div class="seek-fill" style="width: {progressPct}%">
 				<div class="seek-thumb"></div>
@@ -572,6 +600,11 @@
 	}
 	.up-next-singer {
 		font-size: 0.65rem;
+		color: var(--color-faint);
+		white-space: nowrap;
+	}
+	.up-next-stage {
+		font-size: 0.62rem;
 		color: var(--color-faint);
 		white-space: nowrap;
 	}

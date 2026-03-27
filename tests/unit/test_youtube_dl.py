@@ -69,10 +69,15 @@ class TestBuildYtdlDownloadCommand:
         assert cmd[2] == "yt_dlp"
         assert "-f" in cmd
         assert "-o" in cmd
+        assert "--newline" in cmd
+        assert "--progress-template" in cmd
         output_idx = cmd.index("-o") + 1
         assert cmd[output_idx].endswith("%(title)s---%(id)s.%(ext)s")
         assert "/songs" in cmd[output_idx]
         assert "https://www.youtube.com/watch?v=test123" in cmd
+
+        template_idx = cmd.index("--progress-template") + 1
+        assert cmd[template_idx] == "download:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s"
 
     @patch("tommyskaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
     def test_high_quality_format(self, mock_js):

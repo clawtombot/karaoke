@@ -7,7 +7,7 @@
 	import { base } from '$app/paths';
 	import { getState, fetchNowPlaying, type NowPlaying } from '$lib/stores/playback.svelte';
 	import { loadLyrics, clearLyrics, reloadLyrics, applyRemoteOffset } from '$lib/stores/lyrics.svelte';
-	import { emit, on } from '$lib/stores/socket.svelte';
+	import { emit, emitVolatile, on } from '$lib/stores/socket.svelte';
 	import { start as startPitch, stop as stopPitch, type PitchReading } from '$lib/audio/pitch-detector';
 	import * as stemMixer from '$lib/audio/stem-mixer';
 	import LyricsOverlay from '$components/LyricsOverlay.svelte';
@@ -37,6 +37,7 @@
 	let stemsReady = false; // Stems loaded but waiting for video to play
 	let stemsInitiated = false; // Stem loading started for current song
 	let stemGeneration = 0; // Increments on song change to cancel stale loads
+	let resumeAttemptId = 0;
 
 	function toggleStem(stem: string) {
 		emit('stem_toggle', stem);
@@ -48,6 +49,33 @@
 		const m = Math.floor(seconds / 60);
 		const s = Math.floor(seconds % 60);
 		return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+	}
+
+	async function resumeVideoPlayback() {
+		if (!video || np.is_paused || !currentVideoUrl) return false;
+		const attemptId = ++resumeAttemptId;
+		try {
+			await video.play();
+			if (attemptId !== resumeAttemptId) return false;
+			if (stemMixer.canResume()) {
+				stemMixer.resume();
+				stemMixer.applyMix(np.stem_mix, np.volume);
+				stemMixer.syncToVideo(video.currentTime);
+				if (stemMixer.isReady()) {
+					video.volume = 0;
+					video.muted = false;
+				} else {
+					video.volume = np.volume;
+					video.muted = false;
+				}
+			} else {
+				video.volume = np.volume;
+				video.muted = false;
+			}
+			return true;
+		} catch {
+			return false;
+		}
 	}
 
 	// Try to play video, with muted fallback for autoplay policy
@@ -291,10 +319,7 @@
 			video.pause();
 			stemMixer.pause();
 		} else if (!paused && video.paused) {
-			video.play().catch(() => {
-				// Autoplay blocked — will play on next user gesture (onUserGesture)
-			});
-			if (stemMixer.isActive()) stemMixer.resume();
+			resumeVideoPlayback();
 		}
 	});
 
@@ -324,6 +349,13 @@
 		unsubs = [
 			on('splash_role', (role: any) => {
 				isMaster = role === 'master';
+			}),
+			on('pause', () => {
+				video?.pause();
+				stemMixer.pause();
+			}),
+			on('play', () => {
+				resumeVideoPlayback();
 			}),
 			on('playback_position', (position: any) => {
 				// Slave sync: master broadcasts position, slaves align to it
@@ -403,7 +435,7 @@
 		// Report playback position to server (master only)
 		const posInterval = setInterval(() => {
 			if (isMaster && video && !video.paused) {
-				emit('playback_position', video.currentTime);
+				emitVolatile('playback_position', video.currentTime);
 			}
 		}, 1000);
 
@@ -431,6 +463,12 @@
 			}
 		}, 5000);
 
+		const upNextPollInterval = setInterval(() => {
+			if (np.up_next_pending) {
+				fetchNowPlaying();
+			}
+		}, 2000);
+
 		// Start pitch detection
 		startPitch((reading) => {
 			singerPitch = reading;
@@ -443,6 +481,7 @@
 			clearInterval(posInterval);
 			clearInterval(stemInterval);
 			clearInterval(stemPollInterval);
+			clearInterval(upNextPollInterval);
 		};
 	});
 
@@ -489,7 +528,7 @@
 
 		// If video is paused but should be playing, try to play
 		if (video && video.paused && !np.is_paused && currentVideoUrl) {
-			video.play().catch(() => {});
+			resumeVideoPlayback();
 		}
 	}
 
@@ -623,6 +662,7 @@
 		<div class="up-next">
 			<span class="up-next-label">UP NEXT</span>
 			<span class="up-next-song">{np.up_next}</span>
+			{#if np.up_next_step}<span class="up-next-stage">{np.up_next_step}</span>{/if}
 			<span class="up-next-singer">🎤 {np.next_user ?? ''}</span>
 		</div>
 	{/if}
@@ -819,5 +859,11 @@
 	.up-next-singer {
 		font-size: 0.85rem;
 		color: var(--color-green);
+	}
+	.up-next-stage {
+		display: block;
+		font-size: 0.8rem;
+		color: var(--color-faint);
+		margin-bottom: 2px;
 	}
 </style>

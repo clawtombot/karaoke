@@ -1,6 +1,6 @@
 """Playback control routes for skip, pause, volume, and transpose."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from tommyskaraoke.lib.dependencies import broadcast_event, get_karaoke
 
@@ -17,14 +17,27 @@ async def skip():
 
 
 @router.get("/pause")
-async def pause():
-    """Toggle pause/resume playback."""
+async def pause(action: str = Query("toggle")):
+    """Pause or resume playback.
+
+    action: toggle | pause | play
+    """
     k = get_karaoke()
-    # Flip state FIRST so the now_playing event (emitted by pause()) carries correct is_paused
     was_paused = k.playback_controller.is_paused
-    k.playback_controller.pause()
-    await broadcast_event("play" if was_paused else "pause")
-    return {"ok": True}
+
+    if action == "pause":
+        ok = k.playback_controller.set_paused(True)
+    elif action == "play":
+        ok = k.playback_controller.set_paused(False)
+    else:
+        ok = k.playback_controller.pause()
+
+    if not ok:
+        return {"ok": False, "is_paused": k.playback_controller.is_paused}
+
+    if was_paused != k.playback_controller.is_paused:
+        await broadcast_event("play" if was_paused else "pause")
+    return {"ok": True, "is_paused": k.playback_controller.is_paused}
 
 
 @router.get("/transpose/{semitones}")
@@ -76,6 +89,6 @@ async def vol_down():
 async def seek(position: float):
     """Seek to a position in seconds."""
     k = get_karaoke()
-    await broadcast_event("seek", position)
     k.playback_controller.now_playing_position = position
+    await broadcast_event("seek", position)
     return {"ok": True}

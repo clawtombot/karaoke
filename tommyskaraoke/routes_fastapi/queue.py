@@ -9,6 +9,7 @@ from fastapi import APIRouter, Cookie, HTTPException, Request
 from pydantic import BaseModel
 
 from tommyskaraoke.lib.dependencies import broadcast_event, get_admin_password, get_karaoke
+from tommyskaraoke.lib.queue_view import build_song_readiness, build_visible_queue
 from tommyskaraoke.routes_fastapi.files import song_metadata
 
 router = APIRouter(tags=["queue"])
@@ -52,11 +53,13 @@ def is_admin(request: Request) -> bool:
 async def get_queue():
     """Get the current song queue with metadata."""
     k = get_karaoke()
-    queue = k.queue_manager.queue
-    for item in queue:
-        if "file" in item:
-            item["meta"] = song_metadata(k.download_path, item["file"])
-    return queue
+    downloads_status = k.download_manager.get_downloads_status()
+    return build_visible_queue(
+        k.queue_manager.queue,
+        downloads_status,
+        lambda song_path: song_metadata(k.download_path, song_path),
+        lambda song_path: build_song_readiness(song_path, k.stem_separation_enabled),
+    )
 
 
 @router.post("/enqueue")

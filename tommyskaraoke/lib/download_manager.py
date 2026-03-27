@@ -19,6 +19,24 @@ from tommyskaraoke.lib.youtube_dl import (
 )
 
 
+PROGRESS_LINE_REGEX = re.compile(r"^download:\s*([0-9]+(?:\.[0-9]+)?)%\|(.+?)\|(.+?)$")
+
+
+def parse_progress_line(line: str) -> tuple[float, str, str] | None:
+    """Parse a normalized yt-dlp progress line.
+
+    Expected format comes from --progress-template:
+    download:<percent>|<speed>|<eta>
+    """
+    match = PROGRESS_LINE_REGEX.match(line.strip())
+    if not match:
+        return None
+    percent = float(match.group(1))
+    speed = match.group(2).strip()
+    eta = match.group(3).strip()
+    return percent, speed, eta
+
+
 class DownloadManager:
     """Manages a queue of video downloads, processing them serially.
 
@@ -77,10 +95,14 @@ class DownloadManager:
             Dict containing 'active' download info and list of 'pending' downloads.
         """
         return {
-            "active": self.active_download,
-            "pending": self.pending_downloads,
-            "errors": self.download_errors,
+            "active": dict(self.active_download) if self.active_download else None,
+            "pending": [dict(item) for item in self.pending_downloads],
+            "errors": [dict(item) for item in self.download_errors],
         }
+
+    def _emit_status_update(self) -> None:
+        """Broadcast the current download status snapshot to listeners."""
+        self._events.emit("download_status", self.get_downloads_status())
 
     def remove_error(self, error_id: str) -> bool:
         """Remove an error from the list by ID.
@@ -138,16 +160,23 @@ class DownloadManager:
             self._events.emit("download_started")
 
         download_data = {
+            "id": str(uuid.uuid4()),
             "video_url": video_url,
             "enqueue": enqueue,
             "user": user,
             "title": title,
             "display_title": displayed_title,
+            "progress": 0.0,
+            "status": "queued",
+            "eta": "--:--",
+            "speed": "---",
+            "pending": True,
         }
 
         # Add to the download queue and shadow list
         self.download_queue.put(download_data)
         self.pending_downloads.append(download_data)
+        self._emit_status_update()
 
     def _process_queue(self) -> None:
         """Worker thread that processes downloads from the queue serially.
@@ -169,14 +198,19 @@ class DownloadManager:
 
             # Initialize active download state
             self.active_download = {
+                "id": download_request["id"],
                 "title": download_request.get("display_title", download_request["video_url"]),
                 "url": download_request["video_url"],
                 "user": download_request["user"],
+                "enqueue": download_request["enqueue"],
+                "display_title": download_request.get("display_title", download_request["video_url"]),
                 "progress": 0.0,
                 "status": "starting",
                 "eta": "--:--",
                 "speed": "---",
+                "pending": True,
             }
+            self._emit_status_update()
 
             try:
                 self._execute_download(
@@ -191,6 +225,7 @@ class DownloadManager:
                 self._is_downloading = False
                 self.active_download = None
                 self.download_queue.task_done()
+                self._emit_status_update()
 
                 # Check if we are done with all downloads
                 if self.download_queue.empty():
@@ -242,12 +277,8 @@ class DownloadManager:
 
         output_buffer = []
 
-        # Regex to parse progress from yt-dlp stdout
-        # Example: [download]   0.0% of    4.62MiB at  396.66KiB/s ETA 00:12
-        progress_regex = re.compile(
-            r"\[download\]\s+(\d+\.?\d*)%\s+of\s+.*?\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)"
-        )
         video_id = get_youtube_id_from_url(video_url)
+        last_progress_bucket = -1
 
         while True:
             line = process.stdout.readline()
@@ -255,16 +286,18 @@ class DownloadManager:
                 break
             if line:
                 output_buffer.append(line)
-                match = progress_regex.search(line)
-                if match and self.active_download:
-                    percent = float(match.group(1))
-                    speed = match.group(2)
-                    eta = match.group(3)
+                progress = parse_progress_line(line)
+                if progress and self.active_download:
+                    percent, speed, eta = progress
 
                     self.active_download["progress"] = percent
                     self.active_download["status"] = "downloading"
                     self.active_download["speed"] = speed
                     self.active_download["eta"] = eta
+                    progress_bucket = int(percent)
+                    if progress_bucket != last_progress_bucket:
+                        last_progress_bucket = progress_bucket
+                        self._emit_status_update()
                 # Log only non-progress lines to avoid spamming logs, or log everything at debug
                 # logging.debug(line.strip())
 
@@ -272,6 +305,9 @@ class DownloadManager:
         output = "".join(output_buffer)
 
         if rc != 0:
+            if self.active_download:
+                self.active_download["status"] = "error"
+                self._emit_status_update()
             # Logic removed: We no longer retry synchronously as it blocks the queue.
             # Failed downloads are now failed fast and logged.
 
@@ -293,6 +329,8 @@ class DownloadManager:
             if self.active_download:
                 self.active_download["progress"] = 100
                 self.active_download["status"] = "complete"
+                self.active_download["pending"] = False
+                self._emit_status_update()
 
             if enqueue:
                 # MSG: Message shown after the download is completed and queued

@@ -3,12 +3,13 @@
 	 * Stem mixer — swipe up/down on icons to control per-stem volume.
 	 * Tap to toggle mute. Icon fills from bottom to top based on volume.
 	 */
+	import { api } from '$lib/api';
 	import { getState } from '$lib/stores/playback.svelte';
-	import { emit } from '$lib/stores/socket.svelte';
 
 	let { compact = false }: { compact?: boolean } = $props();
 
 	const np = $derived(getState());
+	let localMix = $state<Record<string, number>>({});
 
 	const allStems = [
 		{ name: 'drums', iconClass: 'fa-solid fa-drum', label: 'Drums' },
@@ -30,19 +31,23 @@
 	const hasSplitVocals = $derived(np.stem_urls && 'lead_vocals' in np.stem_urls);
 
 	function getVolume(name: string): number {
+		if (name in localMix) return localMix[name];
 		const v = np.stem_mix[name];
 		if (v === undefined || v === true) return 1.0;
 		if (v === false) return 0.0;
 		return Number(v);
 	}
 
-	function setVolume(name: string, vol: number) {
+	async function setVolume(name: string, vol: number) {
 		const clamped = Math.max(0, Math.min(1, Math.round(vol * 20) / 20));
-		emit('stem_volume', { stem: name, volume: clamped });
+		localMix = { ...localMix, [name]: clamped };
+		await fetch(api(`/stem_volume/${encodeURIComponent(name)}/${clamped}`));
+		const { [name]: _removed, ...rest } = localMix;
+		localMix = rest;
 	}
 
-	function toggleMute(name: string) {
-		emit('stem_toggle', name);
+	async function toggleMute(name: string) {
+		await fetch(api(`/stem_toggle/${encodeURIComponent(name)}`));
 	}
 
 	type Preset = 'karaoke' | 'original' | 'practice';
@@ -67,21 +72,29 @@
 		el.setPointerCapture(e.pointerId);
 		const startY = e.clientY;
 		const startVol = getVolume(name);
+		let currentVol = startVol;
 		let moved = false;
 
 		const onMove = (me: PointerEvent) => {
 			const dy = startY - me.clientY; // up = positive
 			if (Math.abs(dy) > 4) moved = true;
 			if (moved) {
-				setVolume(name, startVol + dy / 80);
+				currentVol = Math.max(0, Math.min(1, Math.round((startVol + dy / 80) * 20) / 20));
+				localMix = { ...localMix, [name]: currentVol };
 			}
 		};
 
-		const onUp = () => {
+		const onUp = async () => {
 			el.removeEventListener('pointermove', onMove);
 			el.removeEventListener('pointerup', onUp);
 			el.removeEventListener('pointercancel', onUp);
-			if (!moved) toggleMute(name);
+			if (!moved) {
+				const { [name]: _removed, ...rest } = localMix;
+				localMix = rest;
+				await toggleMute(name);
+				return;
+			}
+			await setVolume(name, currentVol);
 		};
 
 		el.addEventListener('pointermove', onMove);

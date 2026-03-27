@@ -16,6 +16,7 @@
 		user: string;
 		semitones: number;
 		meta?: { stems: boolean; pitch: boolean; lyrics: boolean };
+		download?: { step: string; detail: string | null; pending: boolean };
 	}
 
 	const np = $derived(getState());
@@ -144,14 +145,25 @@
 
 	onMount(() => {
 		fetchQueue();
+		const progressPollInterval = setInterval(() => {
+			if (queue.some((item) => item.download?.pending)) {
+				fetchQueue();
+			}
+		}, 2000);
 
 		unsubs = [
 			on('queue_update', () => {
 				fetchQueue();
 			}),
+			on('download_status', () => {
+				fetchQueue();
+			}),
 		];
 
-		return () => unsubs.forEach((fn) => fn());
+		return () => {
+			clearInterval(progressPollInterval);
+			unsubs.forEach((fn) => fn());
+		};
 	});
 
 	onDestroy(() => {
@@ -166,6 +178,10 @@
 	function keyLabel(semitones: number): string {
 		if (!semitones) return '';
 		return semitones > 0 ? `+${semitones}` : String(semitones);
+	}
+
+	function downloadLabel(item: QueueItem): string | null {
+		return item.download?.step ?? null;
 	}
 </script>
 
@@ -290,11 +306,11 @@
 		<ul class="flex flex-col gap-2">
 			{#each queue as item, i (item.file + i)}
 				<li
-					draggable="true"
-					ondragstart={(e) => onDragStart(e, i)}
+					draggable={!item.download?.pending}
+					ondragstart={(e) => !item.download?.pending && onDragStart(e, i)}
 					ondragover={(e) => onDragOver(e, i)}
 					ondragleave={onDragLeave}
-					ondrop={(e) => onDrop(e, i)}
+					ondrop={(e) => !item.download?.pending && onDrop(e, i)}
 					ondragend={onDragEnd}
 					class="queue-item glass-light flex items-center gap-3 rounded-xl px-3 py-3 transition-all"
 					class:drag-over={dragOverIndex === i && dragIndex !== i}
@@ -302,7 +318,7 @@
 				>
 					<!-- Drag handle + position -->
 					<div class="flex shrink-0 flex-col items-center">
-						<span class="drag-handle mb-0.5 cursor-grab select-none text-base leading-none" style="color: var(--color-faint)">
+						<span class="drag-handle mb-0.5 select-none text-base leading-none" class:inactive={item.download?.pending} style="color: var(--color-faint)">
 							&#8942;&#8942;
 						</span>
 						<span
@@ -329,9 +345,11 @@
 								</span>
 							{/if}
 							{#if item.meta}
-								{#if !item.meta.stems}<span class="q-meta-badge new">1st play</span>{/if}
+								{#if downloadLabel(item)}<span class="q-meta-badge new">{downloadLabel(item)}</span>{/if}
 								{#if !item.meta.pitch}<span class="q-meta-badge">no pitch</span>{/if}
 								{#if !item.meta.lyrics}<span class="q-meta-badge">no lyrics</span>{/if}
+							{:else if downloadLabel(item)}
+								<span class="q-meta-badge new">{downloadLabel(item)}</span>
 							{/if}
 						</div>
 					</div>
@@ -342,7 +360,7 @@
 							onclick={() => editQueue('up', item.file)}
 							class="queue-btn"
 							aria-label="Move up"
-							disabled={i === 0}
+							disabled={i === 0 || !!item.download?.pending}
 						>
 							&#8593;
 						</button>
@@ -350,7 +368,7 @@
 							onclick={() => editQueue('down', item.file)}
 							class="queue-btn"
 							aria-label="Move down"
-							disabled={i === queue.length - 1}
+							disabled={i === queue.length - 1 || !!item.download?.pending}
 						>
 							&#8595;
 						</button>
@@ -358,6 +376,7 @@
 							onclick={() => editQueue('delete', item.file)}
 							class="queue-btn delete-btn"
 							aria-label="Remove"
+							disabled={!!item.download?.pending}
 						>
 							&#10005;
 						</button>
@@ -397,6 +416,10 @@
 	.drag-handle {
 		letter-spacing: -3px;
 		color: var(--color-faint);
+	}
+
+	.drag-handle.inactive {
+		opacity: 0.3;
 	}
 
 	.queue-btn {

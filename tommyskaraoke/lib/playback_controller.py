@@ -186,6 +186,15 @@ class PlaybackController:
             logging.warning("Tried to pause, but no file is playing!")
             return False
 
+    def set_paused(self, paused: bool) -> bool:
+        """Set pause state explicitly to avoid client-side toggle races."""
+        if not self.is_playing:
+            logging.warning("Tried to set pause state, but no file is playing!")
+            return False
+        if self.is_paused == paused:
+            return True
+        return self.pause()
+
     def get_now_playing(self) -> dict[str, str | int | float | bool | None]:
         """Get the current playback state.
 

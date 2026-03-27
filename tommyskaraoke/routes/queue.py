@@ -17,6 +17,7 @@ from tommyskaraoke.lib.current_app import (
     get_site_name,
     is_admin,
 )
+from tommyskaraoke.lib.queue_view import build_song_readiness, build_visible_queue
 
 _ = flask_babel.gettext
 
@@ -71,7 +72,14 @@ def queue():
 def get_queue():
     """Get the current song queue."""
     k = get_karaoke_instance()
-    return json.dumps(k.queue_manager.queue)
+    return json.dumps(
+        build_visible_queue(
+            k.queue_manager.queue,
+            k.download_manager.get_downloads_status(),
+            lambda song_path: {"stems": False, "pitch": False, "lyrics": False},
+            lambda song_path: build_song_readiness(song_path, k.stem_separation_enabled),
+        )
+    )
 
 
 @queue_bp.route("/queue/addrandom/<int:amount>", methods=["GET"])

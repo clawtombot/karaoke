@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tommyskaraoke.lib.download_manager import DownloadManager
+from tommyskaraoke.lib.download_manager import DownloadManager, parse_progress_line
 from tommyskaraoke.lib.events import EventSystem
 from tommyskaraoke.lib.preference_manager import PreferenceManager
 
@@ -129,6 +129,9 @@ class TestDownloadManagerQueueDownload:
         assert item["enqueue"] is True
         assert item["user"] == "TestUser"
         assert item["title"] == "Test Song"
+        assert item["progress"] == 0.0
+        assert item["status"] == "queued"
+        assert item["pending"] is True
 
     @patch("flask_babel._", side_effect=lambda x: x)
     def test_queue_download_strips_playlist_param(self, mock_gettext, download_manager):
@@ -140,6 +143,35 @@ class TestDownloadManagerQueueDownload:
 
         item = download_manager.download_queue.get_nowait()
         assert item["video_url"] == "https://youtube.com/watch?v=test123"
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    def test_queue_download_emits_status_snapshot(self, mock_gettext, download_manager, events):
+        """Queueing a download should publish a fresh status payload for the UI."""
+        statuses = []
+        events.on("download_status", lambda payload: statuses.append(payload))
+
+        download_manager.queue_download("https://youtube.com/watch?v=test123", enqueue=True, user="TestUser")
+
+        assert len(statuses) == 1
+        assert statuses[0]["active"] is None
+        assert statuses[0]["pending"][0]["enqueue"] is True
+        assert statuses[0]["pending"][0]["progress"] == 0.0
+
+
+class TestDownloadManagerProgressParsing:
+    """Tests for normalized yt-dlp progress parsing."""
+
+    def test_parse_progress_line(self):
+        """Custom progress template lines should parse cleanly."""
+        assert parse_progress_line("download: 42.3%|1.24MiB/s|00:19") == (
+            42.3,
+            "1.24MiB/s",
+            "00:19",
+        )
+
+    def test_parse_progress_line_ignores_other_output(self):
+        """Non-progress output should be ignored."""
+        assert parse_progress_line("[youtube] Extracting URL") is None
 
 
 class TestDownloadManagerExecuteDownload:

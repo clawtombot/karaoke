@@ -44,6 +44,19 @@ async def get_stem_mix():
     }
 
 
+@router.get("/stem_volume/{stem}/{volume}")
+async def stem_volume(stem: str, volume: float):
+    """Set one stem's volume with an explicit HTTP control path."""
+    k = get_karaoke()
+    if not k.stem_separation_enabled:
+        return JSONResponse({"error": "Stem separation not enabled"}, status_code=400)
+    if not k.set_stem_volume(stem, volume):
+        return JSONResponse({"error": f"Invalid stem: {stem}"}, status_code=400)
+    sio = get_sio()
+    await sio.emit("stem_mix_update", k.stem_mix)
+    return {"stem_mix": k.stem_mix}
+
+
 @router.get("/stems/current/{stem}")
 async def serve_stem(stem: str):
     """Serve a stem M4A file for the currently playing song.

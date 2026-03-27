@@ -77,6 +77,36 @@ class TestQueueSocketEmissions:
         payload = k.socketio.emit.call_args[0][1]
         assert payload["up_next"] == "Next Song"
         assert payload["next_user"] == "User1"
+        assert payload["up_next_step"] == "Ready"
+        assert payload["up_next_detail"] is None
+        assert payload["up_next_pending"] is False
+
+    def test_update_now_playing_socket_uses_pending_download_when_queue_empty(self, karaoke_with_socketio):
+        """Pending auto-queued downloads should surface as up next when queue is empty."""
+        k = karaoke_with_socketio
+        k.playback_controller.now_playing = "/songs/current---xyz.mp4"
+        k.download_manager.get_downloads_status.return_value = {
+            "active": {
+                "id": "dl-1",
+                "display_title": "Downloading Song",
+                "user": "Guest",
+                "enqueue": True,
+                "progress": 47,
+                "status": "downloading",
+            },
+            "pending": [],
+            "errors": [],
+        }
+        k.socketio.emit.reset_mock()
+
+        k.update_now_playing_socket()
+
+        payload = k.socketio.emit.call_args[0][1]
+        assert payload["up_next"] == "Downloading Song"
+        assert payload["next_user"] == "Guest"
+        assert payload["up_next_step"] == "Downloading"
+        assert payload["up_next_detail"] == "47%"
+        assert payload["up_next_pending"] is True
 
     def test_enqueue_triggers_queue_socket_update(self, karaoke_with_socketio):
         """enqueue triggers queue_update event."""
@@ -162,6 +192,9 @@ class TestSocketIOEventFormats:
             "volume",
             "up_next",
             "next_user",
+            "up_next_step",
+            "up_next_detail",
+            "up_next_pending",
         ]
         for field in required_fields:
             assert field in payload, f"Missing required field: {field}"

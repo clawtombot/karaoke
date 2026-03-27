@@ -1,5 +1,7 @@
 """Pytest fixtures for TommysKaraoke tests."""
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from tommyskaraoke.constants import ALL_STEM_NAMES
@@ -86,6 +88,12 @@ class MockKaraoke:
             config_file_path=str(tmp_path / "config.ini"), target=self
         )
         self.playback_controller = MockPlaybackController()
+        self.download_manager = MagicMock()
+        self.download_manager.get_downloads_status.return_value = {
+            "active": None,
+            "pending": [],
+            "errors": [],
+        }
         self.volume = 0.85
         self.running = True
         self.now_playing_notification = None

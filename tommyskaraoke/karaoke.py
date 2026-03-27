@@ -32,6 +32,7 @@ from tommyskaraoke.lib.get_platform import (
 from tommyskaraoke.lib.network import get_ip
 from tommyskaraoke.lib.playback_controller import PlaybackController
 from tommyskaraoke.lib.preference_manager import PreferenceManager
+from tommyskaraoke.lib.queue_view import build_song_readiness, get_up_next_item
 from tommyskaraoke.lib.queue_manager import QueueManager
 from tommyskaraoke.lib.separation import SeparationConfig, apply_model_cache_env, resolve_separation_config
 from tommyskaraoke.lib.song_manager import SongManager
@@ -598,7 +599,12 @@ class Karaoke:
             Dictionary with now playing info, queue preview, and volume.
         """
         queue = self.queue_manager.queue
-        next_song = queue[0] if queue else None
+        downloads_status = self.download_manager.get_downloads_status()
+        next_song = get_up_next_item(
+            queue,
+            downloads_status,
+            lambda song_path: build_song_readiness(song_path, self.stem_separation_enabled),
+        )
 
         # Get playback state from PlaybackController
         playback_state = self.playback_controller.get_now_playing()
@@ -653,6 +659,9 @@ class Karaoke:
             "now_playing_file": now_basename,
             "up_next": next_song["title"] if next_song else None,
             "next_user": next_song["user"] if next_song else None,
+            "up_next_step": next_song["download"]["step"] if next_song else None,
+            "up_next_detail": next_song["download"]["detail"] if next_song else None,
+            "up_next_pending": next_song["download"]["pending"] if next_song else None,
             "volume": self.volume,
             "stem_separation_enabled": self.stem_separation_enabled,
             "stems_available": stems_available,

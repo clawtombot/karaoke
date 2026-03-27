@@ -180,6 +180,8 @@ async def lifespan(app: FastAPI):
     # Wire events to SocketIO broadcasts (thread-safe)
     k.events.on("download_started", lambda: _safe_emit("download_started", namespace="/"))
     k.events.on("download_stopped", lambda: _safe_emit("download_stopped", namespace="/"))
+    k.events.on("download_status", lambda data: _safe_emit("download_status", data, namespace="/"))
+    k.events.on("download_status", lambda _data: _safe_emit("now_playing", k.get_now_playing(), namespace="/"))
     k.events.on("queue_update", lambda: _safe_emit("queue_update", namespace="/"))
     k.events.on("now_playing_update", lambda: _safe_emit("now_playing", k.get_now_playing(), namespace="/"))
     k.events.on("playback_started", lambda: _safe_emit("now_playing", k.get_now_playing(), namespace="/"))
